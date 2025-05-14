@@ -1,0 +1,61 @@
+{
+  "type": "module",
+  "name": "openai-chat-agent",
+  "displayName": "openai-chat-agent",
+  "description": "Chat agent based on OpenAI API that generates code",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "openai-chat-agent.startChat",
+        "title": "OpenAI Chat Agent: Start Chat"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "openaiChatSidebar",
+          "title": "Chat Agent",
+          "icon": "media/web-programming.png"
+        }
+      ]
+    },
+    "views": {
+      "openaiChatSidebar": [
+        {
+          "type": "webview",
+          "id": "openaiChatView",
+          "name": "Chat"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.99.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0"
+  },
+  "dependencies": {
+    "@huggingface/inference": "^3.10.0",
+    "@langchain/core": "^0.3.51",
+    "@langchain/langgraph": "^0.2.67",
+    "@langchain/openai": "^0.5.10",
+    "dotenv": "^16.5.0"
+  }
+}

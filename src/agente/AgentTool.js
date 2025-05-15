@@ -82,15 +82,14 @@ const generate_code = tool(async (input) => {
         content: `You are a code generator that generates code from a given requirement.
         The code should be written in the ${input.language} programming language.
         Input to analyze: "${input.requirement}".
-         Output must be a **single valid JSON object**, like:
-        {{ "generated_code": "def divide_numbers(num1, num2): return num1 / num2" }}
+        The final output must be a **single block of code enclose it between triple backticks**, such as:
+        \`\`\`
+          def hello_world():
+              print("Hello, world!")
+        \`\`\`
 
         **Important rules**:
-        - Do **NOT** include any explanation, comments, or markdown formatting.
-        - Do **NOT** output anything except the final JSON object.
-        - You must always ensure that the JSON contains all required fields expected by the tools.
         - Follow the requirement precisely, using your tools effectively to reach the goal.
-        - Do **NOT** wrap the output in \`\`\`json or any other formatting — return raw JSON only.
         `
       }
     ])
@@ -157,6 +156,16 @@ const save_code = tool(async (input) => {
   console.log("SAVE CODE TOOL");
   const code = input.generated_code;
   let filename = input.filename;
+
+  // Rimuovi i backticks se presenti
+  const backtickPattern = /^```(?:\w+)?\n?([\s\S]*?)```$/;
+  const match = code.match(backtickPattern);
+  
+  if (match) {
+    // Estrai solo il contenuto tra i backticks
+    code = match[1];
+    console.log("Backticks rimossi dal codice");
+  }
 
   if (!filename.startsWith("out/")) {
     filename = `out/${filename}`;

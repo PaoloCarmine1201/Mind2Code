@@ -139,17 +139,17 @@ export class ChatViewProvider {
   getHtml(scriptUri, styleUri) {
     return `
       <!DOCTYPE html>
-      <html lang="en">
+      <html lang="it">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link href="${styleUri}" rel="stylesheet" />
       </head>
       <body>
-        <div id="chat-container">
-          <div id="messages"></div>
-          <div id="input-area">
-            <textarea id="input" placeholder="Scrivi un messaggio..."></textarea>
+        <div class="container">
+          <div class="chat-container" id="messages"></div>
+          <div class="input-container" id="input-area">
+            <input type="text" id="input" placeholder="Scrivi un messaggio..." />
             <button id="send">➤</button>
           </div>
         </div>

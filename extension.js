@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { createChatPanel } from './src/chatPanel.js';
+import { createChatPanel } from './src/commands/chatPanel.js';
 import { ChatViewProvider } from './src/chatViewProvider.js';
 
 // This method is called when your extension is activated

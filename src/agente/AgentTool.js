@@ -5,6 +5,7 @@ import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { llm } from './AgentModel.js';
 import { promises as fs } from 'fs';
 import path from 'path';
+import * as vscode from 'vscode';
 
 //TODO: create a tool that checks if the input is a requirement or a featur
 const is_requirement = tool(async (input) => {
@@ -154,7 +155,7 @@ const extract_filename = tool(async (input) => {
 //create a tool that save the code into a file
 const save_code = tool(async (input) => {
   console.log("SAVE CODE TOOL");
-  const code = input.generated_code;
+  let code = input.generated_code;
   let filename = input.filename;
 
   // Rimuovi i backticks se presenti
@@ -172,24 +173,11 @@ const save_code = tool(async (input) => {
   }
 
   try {
-      // Verifica se la directory esiste, altrimenti creala
-      const directory = filename.split('/').slice(0, -1).join('/');
-      if (directory) {
-          try {
-              await fs.access(directory);
-          } catch (err) {
-              // La directory non esiste, creala
-              await fs.mkdir(directory, { recursive: true });
-              console.log(`Directory creata: ${directory}`);
-          }
-      }
-
-      // Salva il codice nel file specificato (lo crea se non esiste)
-      await fs.writeFile(filename, code, 'utf8');
-      return true;
+    // Utilizziamo la funzione saveCodeToFile che usa le API di VS Code
+    return await saveCodeToFile(filename, code);
   } catch (error) {
-      console.error(`Errore durante il salvataggio del file: ${error.message}`);
-      return false;
+    console.error(`Errore durante il salvataggio del file: ${error.message}`);
+    return false;
   }
 }, {
     name: 'save_code',
@@ -199,6 +187,50 @@ const save_code = tool(async (input) => {
       filename: z.string().describe("The filename to save the code into."),
     })
 })
+
+async function saveCodeToFile(filename, code, webview = null) {
+  try {
+    // Ottieni la directory corrente dell'area di lavoro
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+      throw new Error("Nessuna directory di lavoro aperta");
+    }
+    
+    const currentDir = workspaceFolders[0].uri;
+    
+    // Crea il percorso completo del file
+    const filePath = vscode.Uri.joinPath(currentDir, filename);
+    
+    // Crea o sovrascrive il file
+    await vscode.workspace.fs.writeFile(
+      filePath,
+      Buffer.from(code, 'utf8')
+    );
+    
+    // Notifica l'utente
+    if (webview) {
+      webview.postMessage({ 
+        command: 'reply', 
+        text: `✅ Codice salvato con successo nel file: ${filename}` 
+      });
+    }
+    
+    // Apri il file nell'editor
+    const document = await vscode.workspace.openTextDocument(filePath);
+    await vscode.window.showTextDocument(document);
+    
+    return true;
+  } catch (error) {
+    console.error("Errore durante il salvataggio del file:", error);
+    if (webview) {
+      webview.postMessage({ 
+        command: 'reply', 
+        text: `❌ Errore durante il salvataggio del file: ${error.message}` 
+      });
+    }
+    return false;
+  }
+}
 
 export const tools = [is_requirement, classify_language, generate_code, extract_filename, save_code];
 export const toolNode = new ToolNode(tools);

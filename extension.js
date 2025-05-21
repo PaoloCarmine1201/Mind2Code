@@ -19,10 +19,25 @@ export function activate(context) {
 	context.subscriptions.push(disposable);
 
 
-	const provider = new ChatViewProvider(context.extensionUri);
+	const chatViewProvider = new ChatViewProvider(context.extensionUri);
+	// Registra il provider
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider('openaiChatView', provider)
+		vscode.window.registerWebviewViewProvider('openaiChatView', chatViewProvider)
 	);
+
+	  // Pulisci la chat all'avvio dell'estensione
+	// Utilizziamo setTimeout per assicurarci che la webview sia completamente caricata
+	setTimeout(() => {
+		chatViewProvider.clearChat();
+	}, 1000);
+
+	// Registra il comando per pulire la chat
+	context.subscriptions.push(
+		vscode.commands.registerCommand('openai-chat.clearChat', () => {
+		  chatViewProvider.clearChat();
+		  vscode.window.showInformationMessage('Chat pulita con successo!');
+		})
+	  );
 	/*
 
 	vscode.window.registerWebviewViewProvider(...):

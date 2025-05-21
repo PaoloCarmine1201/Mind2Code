@@ -17,8 +17,22 @@
       {
         "command": "openai-chat-agent.startChat",
         "title": "OpenAI Chat Agent: Start Chat"
+      },
+      {
+        "command": "openai-chat.clearChat",
+        "title": "Pulisci Chat",
+        "category": "OpenAI Chat"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "openai-chat.clearChat",
+          "when": "view == openaiChatView",
+          "group": "navigation"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {

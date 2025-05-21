@@ -6,16 +6,19 @@ import { HumanMessage } from "@langchain/core/messages";
 export class ChatViewProvider {
   constructor(extensionUri) {
     this.extensionUri = extensionUri;
+    this._view = null;
     this.conversationState = null;
     this.waitingForContinuation = false; //flag per continuare la conversazione
   }
 
   resolveWebviewView(webviewView) {
+    this._view = webviewView;
     const webview = webviewView.webview;
 
     webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')],
+      retainContextWhenHidden: true  // Mantiene il contesto della webview quando è nascosta
     };
 
     const scriptUri = webview.asWebviewUri(
@@ -134,6 +137,13 @@ export class ChatViewProvider {
         }
       }
     });
+  }
+
+  // Metodo per pulire la chat
+  clearChat() {
+    if (this._view) {
+      this._view.webview.postMessage({ command: 'clearChat' });
+    }
   }
 
   getHtml(scriptUri, styleUri) {

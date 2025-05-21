@@ -17,6 +17,9 @@ const vscode = acquireVsCodeApi();
     });
 */
 
+// Stato della chat
+let chatMessages = [];
+
 // Funzione per aggiungere un messaggio alla chat
 function appendMessage(sender, text, isLoading = false) {
     const chatContainer = document.querySelector('.chat-container');
@@ -49,6 +52,12 @@ function appendMessage(sender, text, isLoading = false) {
     } else {
         // Converti markdown in HTML
         contentDiv.innerHTML = markdownToHtml(text);
+
+        // Salva il messaggio nello stato (solo se non è un messaggio di caricamento)
+        chatMessages.push({ sender, text });
+        
+        // Salva lo stato nel contesto di VS Code
+        vscode.setState({ messages: chatMessages });
     }
     
     messageDiv.appendChild(contentDiv);
@@ -58,6 +67,62 @@ function appendMessage(sender, text, isLoading = false) {
     chatContainer.scrollTop = chatContainer.scrollHeight;
     
     return messageDiv;
+}
+
+// Funzione per ripristinare i messaggi salvati
+function restoreMessages() {
+    // Ottieni lo stato salvato
+    const state = vscode.getState();
+    
+    // Se ci sono messaggi salvati, ripristinali
+    if (state && state.messages && state.messages.length > 0) {
+        chatMessages = state.messages;
+        
+        // Aggiungi i messaggi alla chat
+        chatMessages.forEach(msg => {
+            appendMessageWithoutSaving(msg.sender, msg.text);
+        });
+    }
+}
+
+// Versione di appendMessage che non salva nuovamente (per evitare duplicati durante il ripristino)
+function appendMessageWithoutSaving(sender, text) {
+    const chatContainer = document.querySelector('.chat-container');
+    const messageDiv = document.createElement('div');
+    
+    if (sender === 'Tu') {
+        messageDiv.className = 'message user-message';
+    } else {
+        messageDiv.className = 'message assistant-message';
+    }
+    
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'user-header';
+    if (sender !== 'Tu') {
+        headerDiv.className += ' assistant-header';
+    }
+    headerDiv.textContent = sender;
+    messageDiv.appendChild(headerDiv);
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.innerHTML = markdownToHtml(text);
+    messageDiv.appendChild(contentDiv);
+    
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+// Funzione per pulire la chat
+function clearChat() {
+    // Pulisci l'array dei messaggi
+    chatMessages = [];
+    
+    // Salva lo stato vuoto
+    vscode.setState({ messages: chatMessages });
+    
+    // Pulisci l'interfaccia utente
+    const chatContainer = document.querySelector('.chat-container');
+    chatContainer.innerHTML = '';
 }
 
 // Funzione semplice per convertire markdown in HTML
@@ -127,6 +192,7 @@ document.getElementById('input').addEventListener('keypress', (e) => {
 });
 
 // Gestisci i messaggi dall'estensione
+// Gestisci i messaggi dall'estensione
 window.addEventListener('message', event => {
     const message = event.data;
     
@@ -144,7 +210,15 @@ window.addEventListener('message', event => {
         document.getElementById('input').disabled = false;
         document.getElementById('send').disabled = false;
         document.getElementById('input').focus();
+    } else if (message.command === 'clearChat') {
+        // Comando per pulire la chat
+        clearChat();
     }
+});
+
+// Ripristina i messaggi all'avvio
+document.addEventListener('DOMContentLoaded', () => {
+    restoreMessages();
 });
 
 // Imposta il focus sull'input all'avvio

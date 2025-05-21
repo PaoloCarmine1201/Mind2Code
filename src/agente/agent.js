@@ -127,28 +127,37 @@ async function updatedState(state) {
 }
 
 //create Memory
-const checkpointer = new MemorySaver();
+let checkpointer = new MemorySaver();
 
-export const agentBuilder = new StateGraph(AgentState)
-  .addNode("llmCall", llmCall)
-  .addNode("tools", toolNode)
-  .addNode("updateState", updatedState)
-  // Add edges to connect nodes
-  .addEdge("__start__", "llmCall")
-  .addConditionalEdges(
-    "llmCall",
-    shouldContinue,
-    {
-      "Action": "tools",
-      "__end__": "__end__",
-    }
-  )
-  .addEdge("tools", "updateState") // After exectuing the tool, update the state
-  .addEdge("updateState", "llmCall")
-  .compile({ checkpointer, 
-	interruptBefore:["tools"]
-}); // After updating the state, continue the conversation
+function createAgent() {
 
+  checkpointer = new MemorySaver();
+  return new StateGraph(AgentState)
+    .addNode("llmCall", llmCall)
+    .addNode("tools", toolNode)
+    .addNode("updateState", updatedState)
+    // Add edges to connect nodes
+    .addEdge("__start__", "llmCall")
+    .addConditionalEdges(
+      "llmCall",
+      shouldContinue,
+      {
+        "Action": "tools",
+        "__end__": "__end__",
+      }
+    )
+    .addEdge("tools", "updateState") // After exectuing the tool, update the state
+    .addEdge("updateState", "llmCall")
+    .compile({ checkpointer,
+    interruptBefore:["tools"]
+  }); // After updating the state, continue the conversation
+}
+
+export let agentBuilder = createAgent();
+
+export function resetAgent() {
+  agentBuilder = createAgent();
+}
 /*
 function createImageOfGraph(state) {
 	// Ottieni la rappresentazione del grafo
@@ -253,6 +262,11 @@ export async function runAgent(initialInputs = null) {
   let codeSaved = false;
   const printedMessages = new Set();
   
+  // Se stiamo iniziando una nuova conversazione, resetta l'agente
+  if (initialInputs !== null) {
+    resetAgent();
+  }
+
   const streamConfig = {
     configurable: { thread_id: "conversation-num-1" },
     streamMode: "values",
@@ -322,6 +336,11 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   let codeSaved = false;
   const printedMessages = new Set();
   
+    // Se stiamo iniziando una nuova conversazione, resetta l'agente
+  if (initialInputs !== null) {
+    resetAgent();
+  }
+
   const streamConfig = {
     configurable: { thread_id: "conversation-num-1" },
     streamMode: "values",

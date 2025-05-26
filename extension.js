@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { createChatPanel } from './src/commands/chatPanel.js';
 import { ChatViewProvider } from './src/chatViewProvider.js';
+import { createGithubContext, getGithubContext, clearGithubContext } from './src/commands/githubContext.js';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -11,14 +12,6 @@ import { ChatViewProvider } from './src/chatViewProvider.js';
  * @param {vscode.ExtensionContext} context
  */
 export function activate(context) {
-	//Vecchio
-	const disposable = vscode.commands.registerCommand('openai-chat-agent.startChat', () => {
-		createChatPanel(context);
-		vscode.window.showInformationMessage('Hello World from openai-chat-agent!');
-	});
-	context.subscriptions.push(disposable);
-
-
 	const chatViewProvider = new ChatViewProvider(context.extensionUri);
 	// Registra il provider
 	context.subscriptions.push(
@@ -31,13 +24,49 @@ export function activate(context) {
 		chatViewProvider.clearChat();
 	}, 1000);
 
-	// Registra il comando per pulire la chat
-	context.subscriptions.push(
-		vscode.commands.registerCommand('openai-chat.clearChat', () => {
-		  chatViewProvider.clearChat();
-		  vscode.window.showInformationMessage('Chat pulita con successo!');
-		})
-	  );
+	const commands = [
+		{ 
+		  name: 'openai-chat.clearChat', callback: () => chatViewProvider.clearChat()
+		},
+		{ 
+		  name: 'openai-chat-agent.createGithubContext', 
+		  callback: async () => {
+			const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (!workspaceFolder) {
+			  vscode.window.showErrorMessage("Nessuna cartella di workspace attiva.");
+			  return;
+			}
+			await createGithubContext(workspaceFolder, context);
+			vscode.window.showInformationMessage('Profilo della repository salvato con successo.');
+		  } 
+		},
+		{
+		  name: 'openai-chat-agent.getGithubContext', 
+		  callback: async () => {
+			const githubContext = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, context);
+			if (githubContext) {
+			  vscode.window.showInformationMessage(`Owner get: ${githubContext.owner}, Repo get: ${githubContext.repo}`);
+			} else {
+			  vscode.window.showErrorMessage('Nessun profilo della repository trovato.');
+			}
+		  }
+		},
+		{ 
+		  name: 'openai-chat-agent.clearGithubContext', 
+		  callback: async () => {
+			if (await clearGithubContext(context)){
+				vscode.window.showInformationMessage('Profilo della repository eliminato.');
+			} else {
+				vscode.window.showErrorMessage('Errore durante l\'eliminazione del profilo della repository.');
+			}
+		  } 
+		}
+	  ];
+
+	  commands.forEach(({ name, callback }) => {
+		const disposable = vscode.commands.registerCommand(name, callback);
+		context.subscriptions.push(disposable);
+	  });
 	/*
 
 	vscode.window.registerWebviewViewProvider(...):

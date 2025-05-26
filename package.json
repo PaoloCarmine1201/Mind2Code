@@ -15,12 +15,23 @@
   "contributes": {
     "commands": [
       {
-        "command": "openai-chat-agent.startChat",
-        "title": "OpenAI Chat Agent: Start Chat"
-      },
-      {
         "command": "openai-chat.clearChat",
         "title": "Pulisci Chat",
+        "category": "OpenAI Chat"
+      },
+      {
+        "command": "openai-chat-agent.createGithubContext",
+        "title": "Create GitHub Context",
+        "category": "OpenAI Chat"
+      },
+      {
+        "command": "openai-chat-agent.getGithubContext",
+        "title": "Get GitHub Context",
+        "category": "OpenAI Chat"
+      },
+      {
+        "command": "openai-chat-agent.clearGithubContext",
+        "title": "Clear GitHub Context",
         "category": "OpenAI Chat"
       }
     ],

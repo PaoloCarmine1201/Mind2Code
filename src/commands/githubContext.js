@@ -95,9 +95,10 @@ function detectNamingStyle(filenameWithoutExt) {
 /**
  * Estrae esempi significativi e analizza stile + linguaggio
  */
-async function extractNamingExamples(owner, repo, preloadedData = null ,pathPrefix = '', accumulator = {}) {
+async function extractNamingExamples(owner, repo, preloadedData = null, pathPrefix = '', accumulator = {}, maxFiles = 50, currentCount = 0) {
+  if (currentCount >= maxFiles) return accumulator;
+  
   let data;
-
   if (preloadedData && pathPrefix === '') {
     data = preloadedData;
   } else {
@@ -108,6 +109,8 @@ async function extractNamingExamples(owner, repo, preloadedData = null ,pathPref
   }
 
   for (const item of data) {
+    if (currentCount >= maxFiles) break;
+    
     const name = item.name;
     const lower = name.toLowerCase();
     const ext = path.extname(name);
@@ -115,7 +118,9 @@ async function extractNamingExamples(owner, repo, preloadedData = null ,pathPref
 
     if (item.type === 'dir') {
       if (!IGNORED_DIRS.includes(lower)) {
-        await extractNamingExamples(owner, repo, null, pathPrefix ? `${pathPrefix}/${name}` : name, accumulator);
+        const subPath = pathPrefix ? `${pathPrefix}/${name}` : name;
+        await extractNamingExamples(owner, repo, null, subPath, accumulator, maxFiles, currentCount);
+        currentCount = Object.values(accumulator).flat().length;
       }
     } else if (item.type === 'file') {
       const lang = EXT_LANG_MAP[ext];
@@ -130,6 +135,8 @@ async function extractNamingExamples(owner, repo, preloadedData = null ,pathPref
               namingStyle: style
             }
           ];
+          currentCount++;
+          break; // Passa al file successivo dopo aver trovato un match
         }
       }
     }
@@ -138,66 +145,67 @@ async function extractNamingExamples(owner, repo, preloadedData = null ,pathPref
   return accumulator;
 }
 
-export async function createGithubContext(workspaceFolder, context){
-    const result = await extractRepoInfo(workspaceFolder, context);
-    let owner = null;
-    let repo = null;
-    if(result){
-        owner = result.owner;
-        repo = result.repo;
-    }
+export async function createGithubContext(workspaceFolder, context) {
+  return await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Analisi repository GitHub",
+      cancellable: false
+  }, async (progress) => {
+      progress.report({ increment: 0, message: "Inizio analisi repository..." });
+      
+      const result = await extractRepoInfo(workspaceFolder, context);
+      progress.report({ increment: 20, message: "Informazioni repository estratte" });
+      
+      let owner = null;
+      let repo = null;
+      if(result) {
+          owner = result.owner;
+          repo = result.repo;
+      }
 
-    // 1. Linguaggi
-    const langRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/languages`, { headers });
-    const langData = await langRes.json();
-    const topLanguages = Object.entries(langData)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 2)
-        .map(([lang]) => lang.toLowerCase());
-
-    // 2. File principali nella root (per dedurre framework)
-    const contentsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents`, { headers });
-    const contents = await contentsRes.json();
-    const fileNames = contents.map(f => f.name.toLowerCase());
-    
-    // 3. Framework hint
-    const frameworkHints = {
+      progress.report({ increment: 10, message: "Recupero linguaggi utilizzati..." });
+      const langRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/languages`, { headers });
+      const langData = await langRes.json();
+      
+      progress.report({ increment: 20, message: "Analisi file principali..." });
+      const contentsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents`, { headers });
+      const contents = await contentsRes.json();
+      
+      progress.report({ increment: 20, message: "Identificazione framework..." });
+      const fileNames = contents.map(f => f.name.toLowerCase());
+      const frameworkHints = {
         'pom.xml': 'spring boot',
         'build.gradle': 'spring boot',
         'package.json': 'node.js / react / express',
         'requirements.txt': 'flask / django',
         'go.mod': 'go modules'
-    };
-    const framework = Object.keys(frameworkHints)
-    .filter(name => fileNames.includes(name))
-    .map(name => frameworkHints[name]);
-    
-    // 4. Convenzioni nei nomi file
-    const namingExample = await extractNamingExamples(owner, repo, contents);
-    
-    // 5. File di configurazione
-    const configFiles = CONFIG_FILES.filter(name => fileNames.includes(name));
+      };
+      const framework = Object.keys(frameworkHints)
+            .filter(name => fileNames.includes(name))
+            .map(name => frameworkHints[name]);
 
-    const repoProfile = {
-        owner: owner,
-        nameRepo: repo,
-        languages: topLanguages,
-        framework: framework,
-        namingExamples: namingExample,
-        configFiles: configFiles
-    };
+      
+      progress.report({ increment: 15, message: "Analisi convenzioni di naming..." });
+      const namingExample = await extractNamingExamples(owner, repo, contents, '', {}, 30); // Limita a 30 file      
+      progress.report({ increment: 15, message: "Finalizzazione..." });
+      
+      const repoProfile = {
+          owner: owner,
+          repo: repo,
+          languages: Object.entries(langData).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([lang]) => lang.toLowerCase()),
+          framework: framework,
+          namingExamples: namingExample,
+          configFiles: CONFIG_FILES.filter(name => fileNames.includes(name))
+      };
 
-    // Salva il profilo della repository nel context
-
-    console.log("✅ Profilo repository costruito:", JSON.stringify(repoProfile, null, 2));
-    context.globalState.update('repoContext', repoProfile);
-    /*
-    console.log(`Framework hints: ${framework}`);
-    console.log("Esempi di naming rilevati:", JSON.stringify(namingExample, null, 2));
-    console.log("File di configurazione", configFiles)*/
+      context.globalState.update('repoContext', repoProfile);
+      console.log("Profilo della repository creato:", JSON.stringify(repoProfile, null, 2));
+      return repoProfile;
+  });
 }
 
 export async function getGithubContext(workspaceFolder, context){
+    console.log("Recupero del profilo della repository in corso...");
     const owner = context.globalState.get('githubOwner');
     const repo = context.globalState.get('githubRepo');
     
@@ -205,11 +213,13 @@ export async function getGithubContext(workspaceFolder, context){
         console.log(`Owner get: ${owner}, Repo get: ${repo}`);
         const repoContext = context.globalState.get('repoContext');
         if (repoContext) {
-            console.log("Context repository:", JSON.stringify(repoContext, null, 2));
+            //console.log("Context repository:", JSON.stringify(repoContext, null, 2));
+            console.log("TUTTO OK")
+            return repoContext;
         } else {
             console.log("Nessun profilo della repository trovato nel context.");
         }
-        return { owner, repo };
+        return repoContext;
     } else {
         return null;
     }

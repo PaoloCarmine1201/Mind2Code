@@ -6,6 +6,7 @@ export const AgentState = Annotation.Root({
     messages: Annotation({
         reducer: (x,y) => x.concat(y),
     }),
+    repoContext: Annotation(),
     is_requirement: Annotation(),
     language: Annotation(),
     generated_code: Annotation(),

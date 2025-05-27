@@ -337,9 +337,9 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   const printedMessages = new Set();
   
     // Se stiamo iniziando una nuova conversazione, resetta l'agente
-  if (initialInputs !== null) {
-    resetAgent();
-  }
+    if (initialInputs !== null) {
+        resetAgent();
+    }
 
   const streamConfig = {
     configurable: { thread_id: "conversation-num-1" },
@@ -348,7 +348,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   
   try {
     // Utilizziamo gli input iniziali o null per continuare la conversazione
-    for await (const { messages, is_requirement, language, generated_code, filename, code_saved } of await agentBuilder.stream(initialInputs, streamConfig)) {
+    for await (const { messages, repo_context, is_requirement, language, generated_code, filename, code_saved } of await agentBuilder.stream(initialInputs, streamConfig)) {
       const msg = messages?.[messages.length - 1];
       
       // Aggiorna lo stato is_requirement

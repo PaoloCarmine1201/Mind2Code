@@ -12,7 +12,7 @@ import { createGithubContext, getGithubContext, clearGithubContext } from './src
  * @param {vscode.ExtensionContext} context
  */
 export function activate(context) {
-	const chatViewProvider = new ChatViewProvider(context.extensionUri);
+	const chatViewProvider = new ChatViewProvider(context.extensionUri, context);
 	// Registra il provider
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('openaiChatView', chatViewProvider)
@@ -45,7 +45,7 @@ export function activate(context) {
 		  callback: async () => {
 			const githubContext = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, context);
 			if (githubContext) {
-			  vscode.window.showInformationMessage(`Owner get: ${githubContext.owner}, Repo get: ${githubContext.repo}`);
+			  vscode.window.showInformationMessage(`Owner get: ${githubContext.owner}, Repo get qui: ${githubContext.repo}`);
 			} else {
 			  vscode.window.showErrorMessage('Nessun profilo della repository trovato.');
 			}

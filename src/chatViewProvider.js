@@ -2,16 +2,18 @@
 import * as vscode from 'vscode'
 import { agentBuilder, runAgentForExtention } from './agente/agent.js';
 import { HumanMessage } from "@langchain/core/messages";
+import { getGithubContext, createGithubContext } from './commands/githubContext.js';
 
 export class ChatViewProvider {
-  constructor(extensionUri) {
+  constructor(extensionUri, context) {
     this.extensionUri = extensionUri;
     this._view = null;
+    this.context = context;
     this.conversationState = null;
     this.waitingForContinuation = false; //flag per continuare la conversazione
   }
 
-  resolveWebviewView(webviewView) {
+  async resolveWebviewView(webviewView) {
     this._view = webviewView;
     const webview = webviewView.webview;
 
@@ -27,6 +29,14 @@ export class ChatViewProvider {
     const styleUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'media', 'app.css')
     );
+
+    let repoContext = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);
+    if (!repoContext) {
+      vscode.window.showErrorMessage('Nessun profilo della repository trovato. Creazione in corso...');
+      repoContext = createGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);    
+    }
+
+    console.log("Profilo della repository trovato:", JSON.stringify(repoContext, null, 2));
 
     webview.html = this.getHtml(scriptUri, styleUri);
 
@@ -95,6 +105,7 @@ export class ChatViewProvider {
               is_requirement: undefined,
               messages: [new HumanMessage(message.text)],
               input: message.text,
+              repo_context: repoContext,
               language: undefined,
               generated_code: undefined,
               filename: undefined,

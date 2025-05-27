@@ -1,6 +1,8 @@
 # Requirements Engineering and Code Generation AI Agent README
 
-This Master's thesis project is structured in two main phases. The first focuses on **requirements engineering**, where the user's initial requirement is personalized through a Theory of Mind (ToM)-driven process to better align with their mental state. The refined requirement is then used in the second phase, which involves **generating source code from natural language software requirements** by leveraging the structure and conventions of the repository in which the agent is installed. 
+This Master's thesis project is structured in two main phases. The first focuses on **requirements engineering**, where the user's initial requirement is personalized through a Theory of Mind (ToM)-driven process to better align with their mental state. 
+
+The refined requirement is then used in the second phase, which involves **generating source code from natural language software requirements** by leveraging the structure and conventions of the repository in which the agent is installed. 
 
 The result is a context-aware AI assistant integrated into Visual Studio Code, capable of supporting the developer both in shaping the requirement and in producing high-quality, coherent code.
 

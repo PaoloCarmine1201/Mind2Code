@@ -1,65 +1,38 @@
-# openai-chat-agent README
+# Requirements Engineering and Code Generation AI Agent README
 
-This is the README for your extension "openai-chat-agent". After writing up a brief description, we recommend including the following sections.
+This Master's thesis project is structured in two main phases. The first focuses on **requirements engineering**, where the user's initial requirement is personalized through a Theory of Mind (ToM)-driven process to better align with their mental state. The refined requirement is then used in the second phase, which involves **generating source code from natural language software requirements** by leveraging the structure and conventions of the repository in which the agent is installed. 
 
-## Features
+The result is a context-aware AI assistant integrated into Visual Studio Code, capable of supporting the developer both in shaping the requirement and in producing high-quality, coherent code.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## 🧠 Project Description
 
-For example if there is an image subfolder under your extension project workspace:
+The extension includes an intelligent agent capable of:
 
-\!\[feature X\]\(images/feature-x.png\)
+- Extracting repository context (language, architecture, naming conventions, configuration files, etc.)
+- Interpreting software requirements written in natural language
+- Automatically generating and saving coherent, framework-aligned source code
+- Respecting existing naming styles and structural organization (e.g., MVC)
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## 🔧 Features
 
-## Requirements
+- GitHub repository scanning via GitHub API
+- Dynamic context profiling (`repoProfile`)
+- Integration with LangChain tools (e.g., `is_requirement`, `generate_code`, `save_code`)
+- System prompt construction with full awareness of project conventions
+- Interactive chat interface inside Visual Studio Code
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## 📁 Key Technologies
 
-## Extension Settings
+- **JavaScript** (extension logic)
+- **LangChain** (agent orchestration)
+- **OpenAI** / **LLMs** (code generation)
+- **GitHub API** (context retrieval)
+- **VS Code Webview API** (UI interface)
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+## 🚀 Getting Started
 
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+1. Clone this repository
+2. Add a `.env` file with your GitHub token:
+3. ...
 
 **Enjoy!**

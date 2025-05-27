@@ -55,22 +55,58 @@ const is_requirement = tool(async (input) => {
 
 //create a tool that classify language of the requirement
 const classify_language = tool(async (input) => {
-    console.log("CLASSIFY LANGUAGE TOOL");
+  console.log("CLASSIFY LANGUAGE TOOL");
 
-    const text = input.requirement.toLowerCase();
-    if (text.includes("python")) return "python";
-    if (text.includes("java")) return "java";
-    if (text.includes("javascript") || text.includes("js")) return "javascript";
-    if (text.includes("c++")) return "cpp";
-    // Default to Python if not specified
-    return "python";
-}, {
-    name: 'classify_language',
-    description: 'Call to classify the language of the requirement.',
-    schema: z.object({
-      requirement: z.string().describe("The requirement text to analyze for language information."),    })
+  // Utilizziamo il modello LLM per determinare il linguaggio basandosi sul requisito
+  // e sul contesto GitHub che è già stato fornito nel prompt di sistema
+  const response = await llm.invoke([
+    {
+      role: "system",
+      content: `You are an assistant that determines the most appropriate programming language to implement a software requirement.
+
+FOLLOW THIS PRIORITY ORDER WHEN DETERMINING THE LANGUAGE:
+1. FIRST, analyze the input requirement for explicit language mentions
+2. If no language is specified in the input, check the GitHub repository context
+3. If no clear indication from repository context, default to Python
+
+Analyze the requirement and determine the programming language to use based on this strict priority:
+1. Explicit mentions of languages in the requirement (HIGHEST PRIORITY)
+2. The GitHub repository context provided in the system prompt (MEDIUM PRIORITY)
+3. Default to Python if no other information is available (LOWEST PRIORITY)
+
+Respond ONLY with the language name in lowercase (e.g., "python", "javascript", "java", "cpp", etc.).
+
+Requirement to analyze: "${input.requirement}"
+GitHub repository context: "${input.context}"`
     }
-)
+  ]);
+
+  // Estrai e pulisci la risposta
+  const language = response.content.trim().toLowerCase();
+  
+  // Verifica che sia un linguaggio valido
+  const validLanguages = ["python", "javascript", "java", "cpp", "go", "typescript", "ruby", "php", "csharp", "c"];
+  
+  if (validLanguages.includes(language)) {
+      return language;
+  }
+  
+  // Se il linguaggio non è riconosciuto, cerca di mapparlo a uno valido
+  if (language.includes("js")) return "javascript";
+  if (language.includes("ts")) return "typescript";
+  if (language.includes("c#")) return "csharp";
+  if (language.includes("c++")) return "cpp";
+  
+  // Default a python se non riconosciuto
+  return "python";
+}, {
+  name: 'classify_language',
+  description: 'Call to classify the language of the requirement.',
+  schema: z.object({
+    requirement: z.string().describe("The requirement text to analyze for language information."),
+    context: z.string().describe("The GitHub repository context to provide context for language classification."),
+  })
+})
 
 //create a tool that generate code from the requirement
 const generate_code = tool(async (input) => {

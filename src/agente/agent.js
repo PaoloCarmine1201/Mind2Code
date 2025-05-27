@@ -42,11 +42,13 @@ async function llmCall(state) {
         return state; // Ritorna lo stato senza modifiche
     }
 
+    const repo_context = state.repo_context || "";
 	// LLM decides whether to call a tool or not
 	const result = await llm_with_tools.invoke([ //devo cambiare con llm_with_tools
 	  {
 		role: "system",
 		content: MEDIUM_SYSTEM_PROMPT.replace("{input}", state.input)
+    + (repo_context ? `\n\nRepository Context:\n${repo_context}` : "")
 	  },
 	  ...state.messages
 	]);
@@ -173,7 +175,7 @@ function createImageOfGraph(state) {
 	console.log(`✅ File DOT salvato in: ${dotFilePath}`);
 	
 	// Converti il file DOT in PNG usando Graphviz
-	const outputImagePath = "./graphState.png";
+	const outputImagePath = "./agentGraph.png";
 	exec(`dot -Tpng ${dotFilePath} -o ${outputImagePath}`, (error, stdout, stderr) => {
 	  if (error) {
 		console.error(`❌ Errore nella conversione: ${error.message}`);

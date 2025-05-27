@@ -30,13 +30,13 @@ export class ChatViewProvider {
       vscode.Uri.joinPath(this.extensionUri, 'media', 'app.css')
     );
 
-    let repoContext = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);
-    if (!repoContext) {
+    let repo_context = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);
+    if (!repo_context) {
       vscode.window.showErrorMessage('Nessun profilo della repository trovato. Creazione in corso...');
-      repoContext = createGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);    
+      repo_context = createGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);    
     }
 
-    console.log("Profilo della repository trovato:", JSON.stringify(repoContext, null, 2));
+    console.log("Profilo della repository trovato:", JSON.stringify(repo_context, null, 2));
 
     webview.html = this.getHtml(scriptUri, styleUri);
 
@@ -57,7 +57,7 @@ export class ChatViewProvider {
               
               // Continua la conversazione senza nuovi input (usa lo stato esistente)
               const result = await runAgentForExtention(null, webview);
-              console.log("Ho ricevuto questo result dalla continuazione:", result);
+              //console.log("Ho ricevuto questo result dalla continuazione:", result);
               
                 // Se non è un requisito, non chiedere di continuare
                 if (result.is_requirement === false) {
@@ -105,7 +105,7 @@ export class ChatViewProvider {
               is_requirement: undefined,
               messages: [new HumanMessage(message.text)],
               input: message.text,
-              repo_context: repoContext,
+              repo_context: JSON.stringify(repo_context),
               language: undefined,
               generated_code: undefined,
               filename: undefined,
@@ -114,7 +114,7 @@ export class ChatViewProvider {
             
             // Esegui l'agente e ottieni il risultato
             const result = await runAgentForExtention(inputs, webview);
-            console.log("Ho ricevuto questo result:", result);
+            //console.log("Ho ricevuto questo result:", result);
             
             // Salva lo stato della conversazione
             this.conversationState = result;

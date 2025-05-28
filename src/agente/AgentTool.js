@@ -2,7 +2,7 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { llm } from './AgentModel.js';
+import { llm } from './agentModel.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import * as vscode from 'vscode';

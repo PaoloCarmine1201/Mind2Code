@@ -1,10 +1,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { createChatPanel } from './src/commands/chatPanel.js';
-import { ChatViewProvider } from './src/chatViewProvider.js';
+import { ChatViewProvider } from './src/provider/chatViewProvider.js';
 import { resetAgent } from './src/agente/agent.js';
-import { createGithubContext, getGithubContext, clearGithubContext } from './src/commands/githubContext.js';
+import { createGithubContext, getGithubContext, clearGithubContext } from './src/commands/githubContextCommand.js';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed

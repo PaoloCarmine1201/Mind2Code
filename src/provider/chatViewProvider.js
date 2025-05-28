@@ -1,8 +1,8 @@
 // @ts-nocheck
 import * as vscode from 'vscode'
-import { agentBuilder, runAgentForExtention } from './agente/agent.js';
+import { agentBuilder, runAgentForExtention } from '../agente/agent.js';
 import { HumanMessage } from "@langchain/core/messages";
-import { getGithubContext, createGithubContext } from './commands/githubContext.js';
+import { getGithubContext, createGithubContext } from '../commands/githubContextCommand.js';
 
 export class ChatViewProvider {
   constructor(extensionUri, context) {

@@ -49,6 +49,104 @@ async function extractRepoInfo(workspaceFolder , context){
     }
 }
 
+/**
+ * Analizza il contenuto di un file di configurazione per determinare il framework
+ * @param {string} filePath - Percorso del file da analizzare
+ * @param {string} fileName - Nome del file
+ * @returns {Promise<string>} - Framework rilevato
+ */
+async function analyzeConfigFile(filePath, fileName) {
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    
+    // Analisi basata sul tipo di file
+    if (fileName === 'requirements.txt') {
+      // Cerca framework Python
+      if (content.includes('flask')) {
+        return 'Flask';
+      } else if (content.includes('django')) {
+        return 'Django';
+      } else {
+        return 'Python';
+      }
+    } else if (fileName === 'package.json') {
+      // Analisi package.json per framework JavaScript
+      const packageJson = JSON.parse(content);
+      const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      
+      if (dependencies.react) {
+        return 'React';
+      } else if (dependencies.express) {
+        return 'Express';
+      } else if (dependencies.vue) {
+        return 'Vue.js';
+      } else if (dependencies.angular) {
+        return 'Angular';
+      } else {
+        return 'Node.js';
+      }
+    } else if (fileName === 'pom.xml' || fileName === 'build.gradle') {
+      // Analisi file Java
+      if (content.includes('spring-boot') || content.includes('org.springframework.boot')) {
+        return 'Spring Boot';
+      } else {
+        return 'Java';
+      }
+    } else if (fileName === 'go.mod') {
+      // Analisi Go modules
+      if (content.includes('github.com/gin-gonic/gin')) {
+        return 'Gin';
+      } else if (content.includes('github.com/gorilla/mux')) {
+        return 'Gorilla';
+      } else {
+        return 'Go';
+      }
+    }
+    
+    // Default: restituisci il valore predefinito dal frameworkHints
+    return frameworkHints[fileName] || 'Unknown';
+  } catch (error) {
+    console.error(`Errore durante l'analisi del file ${fileName}:`, error);
+    return 'Unknown';
+  }
+}
+
+async function determineFramework(workspaceFolder, contents) {
+    const configFilesFound = CONFIG_FILES.filter(name => 
+      contents.some(file => file.name.toLowerCase() === name.toLowerCase())
+    );
+    
+    if (configFilesFound.length === 0) return [];
+    
+    const frameworks = [];
+    
+    for (const fileName of configFilesFound) {
+      const fileObj = contents.find(file => file.name.toLowerCase() === fileName.toLowerCase());
+      if (fileObj) {
+        // Scarica il contenuto del file se è un file remoto
+        let filePath;
+        let content;
+        
+        if (fileObj.download_url) {
+          const response = await fetch(fileObj.download_url, { headers });
+          content = await response.text();
+          // Crea un file temporaneo o usa direttamente il contenuto
+          filePath = path.join(workspaceFolder, fileName);
+          await fs.writeFile(filePath, content, 'utf8');
+        } else {
+          filePath = path.join(workspaceFolder, fileName);
+        }
+        
+        const framework = await analyzeConfigFile(filePath, fileName);
+        if (framework && framework !== 'Unknown') {
+          frameworks.push(framework);
+        }
+      }
+    }
+    
+    return frameworks;
+  }
+
 const IGNORED_DIRS = ['node_modules', 'build', 'dist', '.git', '.vscode', 'docs', 'test', 'tests'];
 const NAMING_PATTERNS = {
   controllers: /controller/i,
@@ -173,17 +271,18 @@ export async function createGithubContext(workspaceFolder, context) {
       
       progress.report({ increment: 20, message: "Identificazione framework..." });
       const fileNames = contents.map(f => f.name.toLowerCase());
-      const frameworkHints = {
+      /*const frameworkHints = {
         'pom.xml': 'spring boot',
-        'build.gradle': 'spring boot',
+        'build.gradle': 'spring boot',//analizza i file 
         'package.json': 'node.js / react / express',
         'requirements.txt': 'flask / django',
         'go.mod': 'go modules'
       };
       const framework = Object.keys(frameworkHints)
             .filter(name => fileNames.includes(name))
-            .map(name => frameworkHints[name]);
-
+            .map(name => frameworkHints[name]);*/
+      
+    const framework = await determineFramework(workspaceFolder, contents);
       
       progress.report({ increment: 15, message: "Analisi convenzioni di naming..." });
       const namingExample = await extractNamingExamples(owner, repo, contents, '', {}, 30); // Limita a 30 file      

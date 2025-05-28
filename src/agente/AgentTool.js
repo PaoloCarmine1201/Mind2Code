@@ -7,7 +7,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import * as vscode from 'vscode';
 
-//TODO: create a tool that checks if the input is a requirement or a featur
+//TODO: Change this tool to a now tool of requirement engineering
 const is_requirement = tool(async (input) => {
     console.log("IS REQUIREMENT TOOL");
     
@@ -16,16 +16,16 @@ const is_requirement = tool(async (input) => {
         role: "system",
         content: `You are a classifier that determines whether a given input is a software requirement.
     
-    Reply ONLY with a JSON object in the format:
-    { "requirement": true } if the input describes a software feature or behavior
-    { "requirement": false } otherwise
-    
-    Software requirements typically:
-    - Describe what a system should do
-    - Specify features or behaviors
-    - May be formal or informal
-    
-    Input to analyze: "${input.requirement}"`
+			Reply ONLY with a JSON object in the format:
+			{ "requirement": true } if the input describes a software feature or behavior
+			{ "requirement": false } otherwise
+			
+			Software requirements typically:
+			- Describe what a system should do
+			- Specify features or behaviors
+			- May be formal or informal
+			
+			Input to analyze: "${input.requirement}"`
       }
     ]);
 
@@ -64,20 +64,20 @@ const classify_language = tool(async (input) => {
       role: "system",
       content: `You are an assistant that determines the most appropriate programming language to implement a software requirement.
 
-FOLLOW THIS PRIORITY ORDER WHEN DETERMINING THE LANGUAGE:
-1. FIRST, analyze the input requirement for explicit language mentions
-2. If no language is specified in the input, check the GitHub repository context
-3. If no clear indication from repository context, default to Python
+		FOLLOW THIS PRIORITY ORDER WHEN DETERMINING THE LANGUAGE:
+		1. FIRST, analyze the input requirement for explicit language mentions
+		2. If no language is specified in the input, check the GitHub repository context
+		3. If no clear indication from repository context, default to Python
 
-Analyze the requirement and determine the programming language to use based on this strict priority:
-1. Explicit mentions of languages in the requirement (HIGHEST PRIORITY)
-2. The GitHub repository context provided in the system prompt (MEDIUM PRIORITY)
-3. Default to Python if no other information is available (LOWEST PRIORITY)
+		Analyze the requirement and determine the programming language to use based on this strict priority:
+		1. Explicit mentions of languages in the requirement (HIGHEST PRIORITY)
+		2. The GitHub repository context provided in the system prompt (MEDIUM PRIORITY)
+		3. Default to Python if no other information is available (LOWEST PRIORITY)
 
-Respond ONLY with the language name in lowercase (e.g., "python", "javascript", "java", "cpp", etc.).
+		Respond ONLY with the language name in lowercase (e.g., "python", "javascript", "java", "cpp", etc.).
 
-Requirement to analyze: "${input.requirement}"
-GitHub repository context: "${input.context}"`
+		Requirement to analyze: "${input.requirement}"
+		GitHub repository context: "${input.context}"`
     }
   ]);
 
@@ -111,23 +111,21 @@ GitHub repository context: "${input.context}"`
 //create a tool that generate code from the requirement
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
-    //console.log("LINGUA: ", input.language);
-    //console.log("REQUIREMENT: ", input.requirement);
     const response = await llm.invoke([
       {
         role: "system",
         content: `You are a code generator that generates code from a given requirement.
-        The code should be written in the ${input.language} programming language.
-        Input to analyze: "${input.requirement}".
-        The final output must be a **single block of code enclose it between triple backticks**, such as:
-        \`\`\`
-          def hello_world():
-              print("Hello, world!")
-        \`\`\`
+			The code should be written in the ${input.language} programming language.
+			Input to analyze: "${input.requirement}".
+			The final output must be a **single block of code enclose it between triple backticks**, such as:
+			\`\`\`
+			def hello_world():
+				print("Hello, world!")
+			\`\`\`
 
-        **Important rules**:
-        - Follow the requirement precisely, using your tools effectively to reach the goal.
-        `
+			**Important rules**:
+			- Follow the requirement precisely, using your tools effectively to reach the goal.
+			`
       }
     ])
 
@@ -153,14 +151,14 @@ const extract_filename = tool(async (input) => {
       role: "system",
       content: `You are an assistant that extracts an appropriate filename from a software requirement.
       
-    Analyze the requirement and generate a filename that:
-    1. Reflects the main described functionality
-    2. Follows naming conventions for the ${input.language} language
-    3. Includes the correct file extension for the language
-    
-    Requirement to analyze: "${input.requirement}"
-    
-    Reply with ONLY the suggested filename, without any comments or additional explanation.`
+		Analyze the requirement and generate a filename that:
+		1. Reflects the main described functionality
+		2. Follows naming conventions for the ${input.language} language
+		3. Includes the correct file extension for the language
+		
+		Requirement to analyze: "${input.requirement}"
+		
+		Reply with ONLY the suggested filename, without any comments or additional explanation.`
       }
   ]);
   

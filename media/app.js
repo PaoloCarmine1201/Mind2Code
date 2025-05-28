@@ -1,21 +1,5 @@
 // @ts-nocheck
 const vscode = acquireVsCodeApi();
-/*
-  * acquireVsCodeApi() è una funzione fornita da VS Code per ottenere un'istanza dell'API di comunicazione tra il webview e l'estensione.
-  * Questa API consente al webview di inviare messaggi all'estensione e ricevere risposte.
-  * È utile per comunicare tra il contenuto del webview e il codice dell'estensione.
-  * 
-  * const vscode = acquireVsCodeApi();
-  * vscode.postMessage(message)
-    Invia un messaggio al backend (file extension.js, chatViewProvider.js, ecc.).
-
-    vscode.postMessage({ command: 'ask', text: 'Ciao!' });
-    
-    Nel backend, lo ricevi con:
-    webview.onDidReceiveMessage(message => {
-      if (message.command === 'ask') { ... }
-    });
-*/
 
 // Stato della chat
 let chatMessages = [];
@@ -191,7 +175,6 @@ document.getElementById('input').addEventListener('keypress', (e) => {
     }
 });
 
-// Gestisci i messaggi dall'estensione
 // Gestisci i messaggi dall'estensione
 window.addEventListener('message', event => {
     const message = event.data;

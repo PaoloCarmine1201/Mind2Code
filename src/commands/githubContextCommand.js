@@ -145,7 +145,7 @@ async function determineFramework(workspaceFolder, contents) {
     }
     
     return frameworks;
-  }
+}
 
 const IGNORED_DIRS = ['node_modules', 'build', 'dist', '.git', '.vscode', 'docs', 'test', 'tests'];
 const NAMING_PATTERNS = {
@@ -271,18 +271,8 @@ export async function createGithubContext(workspaceFolder, context) {
       
       progress.report({ increment: 20, message: "Identificazione framework..." });
       const fileNames = contents.map(f => f.name.toLowerCase());
-      /*const frameworkHints = {
-        'pom.xml': 'spring boot',
-        'build.gradle': 'spring boot',//analizza i file 
-        'package.json': 'node.js / react / express',
-        'requirements.txt': 'flask / django',
-        'go.mod': 'go modules'
-      };
-      const framework = Object.keys(frameworkHints)
-            .filter(name => fileNames.includes(name))
-            .map(name => frameworkHints[name]);*/
       
-    const framework = await determineFramework(workspaceFolder, contents);
+      const framework = await determineFramework(workspaceFolder, contents);
       
       progress.report({ increment: 15, message: "Analisi convenzioni di naming..." });
       const namingExample = await extractNamingExamples(owner, repo, contents, '', {}, 30); // Limita a 30 file      

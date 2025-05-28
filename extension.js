@@ -104,28 +104,13 @@ export function activate(context) {
 				return repoContext;
 			  });
 			}
-		  }
+		}
 	  ];
 
 	  commands.forEach(({ name, callback }) => {
 		const disposable = vscode.commands.registerCommand(name, callback);
 		context.subscriptions.push(disposable);
 	  });
-	/*
-
-	vscode.window.registerWebviewViewProvider(...):
-
-	Registra il tuo provider con l’ID "openaiChatView".
-	Questo ID deve essere identico a quello che hai messo in package.json nella sezione "views".
-	Significa: “quando VS Code deve disegnare la vista chiamata openaiChatView, usa questo provider per farlo.”
-
-	Immagina che:
-		"openaiChatView" è il nome del contenitore nel tuo package.json
-		ChatViewProvider è il costruttore che sa come riempire quel contenitore
-
-		Il tuo codice sta dicendo a VS Code:
-		"Guarda, se devi riempire il contenitore openaiChatView, chiedi a questo signore qui (provider) di farlo."
-	*/
 
 }
 

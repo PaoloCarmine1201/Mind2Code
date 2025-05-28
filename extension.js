@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { createChatPanel } from './src/commands/chatPanel.js';
 import { ChatViewProvider } from './src/chatViewProvider.js';
+import { resetAgent } from './src/agente/agent.js';
 import { createGithubContext, getGithubContext, clearGithubContext } from './src/commands/githubContext.js';
 
 // This method is called when your extension is activated
@@ -60,7 +61,51 @@ export function activate(context) {
 				vscode.window.showErrorMessage('Errore durante l\'eliminazione del profilo della repository.');
 			}
 		  } 
-		}
+		},
+		{ 
+			name: 'openai-chat-agent.refreshExtension', 
+			callback: async () => {
+			  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			  if (!workspaceFolder) {
+				vscode.window.showErrorMessage("Nessuna cartella di workspace attiva.");
+				return;
+			  }
+			  
+			  // Mostra notifica di inizio refresh
+			  vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: "Aggiornamento estensione in corso",
+				cancellable: false
+			  }, async (progress) => {
+				progress.report({ increment: 0, message: "Pulizia contesto precedente..." });
+				
+				// Pulisci il contesto GitHub esistente
+				await clearGithubContext(context);
+				
+				progress.report({ increment: 30, message: "Creazione nuovo contesto GitHub..." });
+				
+				// Crea un nuovo contesto GitHub
+				const repoContext = await createGithubContext(workspaceFolder, context);
+				
+				progress.report({ increment: 30, message: "Reset dell'agente..." });
+				
+				// Reset dell'agente
+				resetAgent();
+				
+				progress.report({ increment: 30, message: "Pulizia chat..." });
+				
+				// Pulisci la chat
+				chatViewProvider.clearChat();
+				
+				progress.report({ increment: 10, message: "Completato!" });
+				
+				// Mostra messaggio di successo
+				vscode.window.showInformationMessage('Estensione aggiornata con successo. Nuovo contesto GitHub caricato.');
+				
+				return repoContext;
+			  });
+			}
+		  }
 	  ];
 
 	  commands.forEach(({ name, callback }) => {

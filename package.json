@@ -33,6 +33,11 @@
         "command": "openai-chat-agent.clearGithubContext",
         "title": "Clear GitHub Context",
         "category": "OpenAI Chat"
+      },
+      {
+        "command": "openai-chat-agent.refreshExtension",
+        "title": "Refresh Extension",
+        "category": "OpenAI Chat"
       }
     ],
     "menus": {

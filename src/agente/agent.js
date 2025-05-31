@@ -54,7 +54,6 @@ async function llmCall(state) {
 	]);
 
 	//console.log("🤖 Messaggio LLM:", JSON.stringify(result, null, 2), "fine messaggio LLM");
-  console.log("📝 Stampo confidence primo :", result.tool_calls?.[0]?.args?.confidence || 0);
   
 	return {
 		...state,
@@ -113,7 +112,6 @@ async function updatedState(state) {
           // Non è un JSON valido, lascialo così
         }
       }
-      console.log("Controllo il content di classify_language:", content);
       if (typeof content === "object" && content !== null) {
             //console.log("📝 Sono nell'if di classify:", lastMessage.content);
             return {
@@ -263,7 +261,6 @@ export async function runAgentForExtention(initialInputs = null, webview) {
       }
 
       // Gestione dei messaggi
-      // Gestione dei messaggi
       if (msg?.content) {
         let toPrint = msg.content;
         // Se è una stringa JSON, prova a fare il parse
@@ -292,11 +289,9 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         if (msg.role === 'tool' || msg.constructor.name === 'ToolMessage') {
           // Invia il messaggio come tool_output
           if (!printedMessages.has(toPrint)) {
-            console.log("🔧 Risposta del tool:", toPrint);
             if (typeof toPrint === "object" && toPrint!== null) {
               toPrint = JSON.stringify(toPrint);
             }
-            console.log("📝 SONO QUIIIIIIIII:", toPrint); // TODO: la risposta di is_requirement non viene stampata, ma il tool va cambiato con quello di requirement engineering
             webview.postMessage({ command: 'tool_output', text: ""+toPrint, toolName: msg.name });
             printedMessages.add(toPrint);
           }
@@ -328,13 +323,13 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         //console.log("💻 Codice generato disponibile");
         webview.postMessage({ command: 'reply', text: "💻 Codice generato disponibile" });
         try {
+          console.log("STAMPO IL GENERATED CODE: " + generated_code);
           const parsedCode = JSON.parse(generated_code);
           //console.log("✅ Codice generato correttamente:");
           webview.postMessage({ command: 'reply', text: "✅ Codice generato correttamente:" });
           //console.log(parsedCode.generated_code || generated_code);
         } catch (e) {
           webview.postMessage({ command: 'reply', text: "✅ Codice generato correttamente qui:" });
-          //console.log(generated_code);
         }
         codeAlreadyPrinted = true;
         console.log("-----\n");

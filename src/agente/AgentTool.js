@@ -11,7 +11,6 @@ import * as vscode from 'vscode';
 //tool with confidence level of LLM
 const is_requirement = tool(async (input) => {
     console.log("IS REQUIREMENT TOOL");
-    //console.log("Stampo confidence ", input.confidence);
     
     const response = await llm.invoke([
       {

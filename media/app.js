@@ -223,7 +223,8 @@ window.addEventListener('message', event => {
     } else if (toolName === 'extract_filename') {
         text = `Ho scelto questo nome file per te: <strong>${text}</strong>. Passo alla generazione del codice!`;
     } else if (toolName === 'generate_code') {
-        text = "Ecco il codice generato per il tuo requisito:";
+        console.log('Codice generato:', text);
+        text = markdownToHtml(text);
     } else if (toolName === 'save_code') {
         text = "Codice salvato con successo! Se vuoi, puoi fare un'altra richiesta.";
     }

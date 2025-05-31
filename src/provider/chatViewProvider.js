@@ -134,14 +134,6 @@ async function handleAgentResult(result, webview, continueCallback) {
     return;
   }
 
-  // Se c'è un tool_output, invialo come messaggio separato
-  if (result.tool_output) {
-    webview.postMessage({
-      command: 'tool_output',
-      text: result.tool_output
-    });
-  }
-
   // Se non è un requisito, termina
   if (result.is_requirement === false) {
     webview.postMessage({ 

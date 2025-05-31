@@ -151,6 +151,10 @@ document.getElementById('send').addEventListener('click', () => {
     const input = document.getElementById('input');
     const text = input.value.trim();
     if (!text) return;
+
+    if (text === 'si' || text === 'sì' || text === 'yes' || text === 's' || text === 'no' || text === 'n') {
+        document.getElementById('confirmation-buttons').innerHTML = '';
+    }
     
     // Aggiungi il messaggio dell'utente
     appendMessage('Tu', text);
@@ -178,6 +182,11 @@ document.getElementById('input').addEventListener('keypress', (e) => {
 // Gestisci i messaggi dall'estensione
 window.addEventListener('message', event => {
     const message = event.data;
+
+    if (message.command === 'askConfirmation') {
+        appendMessage('Assistente', message.text);
+        showConfirmationButtons(message.options);
+    }
     
     if (message.command === 'reply') {
         // Rimuovi il messaggio di caricamento se presente
@@ -206,6 +215,50 @@ window.addEventListener('message', event => {
         clearChat();
     }
 });
+
+// Funzione per mostrare i bottoni
+function showConfirmationButtons(options) {
+    const btnContainer = document.getElementById('confirmation-buttons');
+    btnContainer.innerHTML = '';
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.textContent = opt.label;
+        btn.className = 'confirmation-btn';
+
+        // Aggiungi un'icona in base al valore
+        if (opt.value === 'si') btn.textContent = '✅ ' + opt.label;
+        if (opt.value === 'no') btn.textContent = '❌ ' + opt.label;
+
+        btn.onclick = () => {
+            // Mostra in chat la scelta dell'utente
+            appendMessage('Tu', opt.label);
+            vscode.postMessage({ command: 'ask', text: opt.value });
+            btnContainer.innerHTML = '';
+        };
+        btnContainer.appendChild(btn);
+    });
+}
+
+// Funzioni di supporto da riagganciare
+function sendMessage() {
+    const input = document.getElementById('input');
+    const text = input.value.trim();
+    if (!text) return;
+    appendMessage('Tu', text);
+    input.disabled = true;
+    document.getElementById('send').disabled = true;
+    const loadingMessage = appendMessage('Assistente', '', true);
+    vscode.postMessage({ command: 'ask', text });
+    input.value = '';
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('send').click();
+    }
+}
 
 // Ripristina i messaggi all'avvio
 document.addEventListener('DOMContentLoaded', () => {

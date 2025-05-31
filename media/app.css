@@ -136,6 +136,42 @@ pre {
     animation: dots 1.5s steps(5, end) infinite;
 }
 
+.confirmation-btn {
+    margin: 0 8px;
+    padding: 12px 28px;
+    font-size: 1.1em;
+    border-radius: 24px;
+    border: none;
+    background: linear-gradient(90deg, #007acc 60%, #00c6ff 100%);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: background 0.2s, transform 0.1s;
+    font-weight: 600;
+    outline: none;
+    opacity: 0;
+    animation: fadeInBtn 0.3s forwards;
+}
+.confirmation-btn:hover, .confirmation-btn:focus {
+    background: linear-gradient(90deg, #005a9e 60%, #0099cc 100%);
+    transform: translateY(-2px) scale(1.04);
+}
+#confirmation-buttons {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.confirmation-btn:active {
+    transform: scale(0.97);
+    filter: brightness(0.95);
+}
+
+@keyframes fadeInBtn {
+    to { opacity: 1; }
+}
+
 @keyframes dots {
     0%, 20% {
         content: '.';

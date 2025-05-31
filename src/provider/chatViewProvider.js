@@ -110,10 +110,11 @@ export class ChatViewProvider {
       <body>
         <div class="container">
           <div class="chat-container" id="messages"></div>
-          <div class="input-container" id="input-area">
-            <input type="text" id="input" placeholder="Scrivi un messaggio..." />
-            <button id="send">➤</button>
-          </div>
+          <div id="confirmation-buttons"></div>
+            <div class="input-container" id="input-area">
+              <input type="text" id="input" placeholder="Scrivi un messaggio..." />
+              <button id="send">➤</button>
+            </div>
         </div>
         <script src="${scriptUri}"></script>
       </body>
@@ -165,8 +166,12 @@ async function handleAgentResult(result, webview, continueCallback) {
     // Chiedi all'utente se vuole continuare
     this.waitingForContinuation = true;
     webview.postMessage({
-      command: 'reply',
-      text: 'Vuoi continuare? (si/no)'
-    });
+      command: 'askConfirmation',
+      text: 'Vuoi continuare con l\'esecuzione del tool?',
+      options: [
+          { label: 'Esegui tool', value: 'si' },
+          { label: 'Annulla esecuzione', value: 'no' }
+        ]
+      });
   }
 }

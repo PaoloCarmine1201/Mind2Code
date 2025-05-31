@@ -297,7 +297,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
               toPrint = JSON.stringify(toPrint);
             }
             console.log("📝 SONO QUIIIIIIIII:", toPrint); // TODO: la risposta di is_requirement non viene stampata, ma il tool va cambiato con quello di requirement engineering
-            webview.postMessage({ command: 'tool_output', text: "Risposta dal tool: "+toPrint });
+            webview.postMessage({ command: 'tool_output', text: ""+toPrint, toolName: msg.name });
             printedMessages.add(toPrint);
           }
         } else {

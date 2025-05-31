@@ -208,8 +208,26 @@ window.addEventListener('message', event => {
         loadingMessages.forEach(el => {
             el.parentElement.remove();
         });
-        // Aggiungi l'output del tool
-        appendMessage('Tool', message.text);
+        // Personalizza la risposta in base al tool
+    let text = message.text;
+    const toolName = message.toolName;
+
+    if (toolName === 'is_requirement') {
+        if (text.includes('true')) {
+            text = "Sì, questo è un requisito! Continuiamo con il prossimo passo.";
+        } else if (text.includes('false')) {
+            text = "Non sembra un requisito. Vuoi riprovare o chiedere altro?";
+        }
+    } else if (toolName === 'classify_language') {
+        text = `Ho individuato il linguaggio migliore per questo requisito: <strong>${text}</strong>. Procedo!`;
+    } else if (toolName === 'extract_filename') {
+        text = `Ho scelto questo nome file per te: <strong>${text}</strong>. Passo alla generazione del codice!`;
+    } else if (toolName === 'generate_code') {
+        text = "Ecco il codice generato per il tuo requisito:";
+    } else if (toolName === 'save_code') {
+        text = "Codice salvato con successo! Se vuoi, puoi fare un'altra richiesta.";
+    }
+        appendMessage('Tool', text);
     } else if (message.command === 'clearChat') {
         // Comando per pulire la chat
         clearChat();

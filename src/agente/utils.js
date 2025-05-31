@@ -25,13 +25,13 @@ When generating code, make sure to:
 
 You have access to the following tools:
 
-is_requirement(requirement: str):
+is_requirement(requirement: str, confidence: float):
     Verifies whether the given input is a valid software requirement.
 
-classify_language(requirement: str):
+classify_language(requirement: str, confidence: float):
     Identifies the programming language related to the requirement, based on the repository informations.
 
-extract_filename(requirement: str, language: str):
+extract_filename(requirement: str, language: str, confidence: float):
     Extracts an appropriate filename from the requirement, based on functionality and language.
 
 generate_code(requirement: str, language: str):
@@ -65,4 +65,27 @@ The final output for the tools must be a **single block of code enclose it betwe
         - The generated code must be complete and functional, ready to be saved and executed.
         - do not Include explanatory comments in the generated code to improve clarity.
         - Ensure the code follows best practices for the specified programming language.
-`;
+
+    ****IMPORTANT****
+    When calling a tool, include a field "confidence" (between 0 and 1) inside the tool's arguments to indicate how certain you are that the tool should be used.
+
+    Example tool call:
+        "tool_calls": [
+        {
+          "id": "call_gGgs6PBztB31AjfEPhQBosAt",
+          "type": "function",
+          "function": {
+            "name": "is_requirement",
+            "arguments": "{\"requirement\":\"\",
+            \"confidence\": }"
+          }
+        }
+      ]
+    - The confidence value should reflect your certainty about the tool's relevance and necessity for the current step.
+
+    Important rules for output formatting:
+    - Always return a valid JSON object.
+    - Do not return Markdown formatting (\`\`\`), except when the **final output is code**, which should be enclosed in triple backticks as previously described.
+    - Never include explanatory text outside the JSON structure.
+
+        `;

@@ -8,8 +8,10 @@ import path from 'path';
 import * as vscode from 'vscode';
 
 //TODO: Change this tool to a now tool of requirement engineering
+//tool with confidence level of LLM
 const is_requirement = tool(async (input) => {
     console.log("IS REQUIREMENT TOOL");
+    //console.log("Stampo confidence ", input.confidence);
     
     const response = await llm.invoke([
       {
@@ -38,8 +40,10 @@ const is_requirement = tool(async (input) => {
       if (typeof parsedResponse.requirement !== 'boolean') {
           throw new Error("Formato risposta non valido: 'requirement' dovrebbe essere un booleano");
       }
-      
-      return parsedResponse.requirement; // Restituisce true o false
+    return { 
+      requirement: parsedResponse.requirement, 
+      confidence: input.confidence // restituisce anche la confidence passata in input
+    };
     } catch (error) {
         console.error("Errore nell'analisi della risposta:", error);
         throw new Error("Formato risposta non valido dal modello LLM");
@@ -49,11 +53,13 @@ const is_requirement = tool(async (input) => {
     description: 'Call to check if the input is a requirement or a feature.',
     schema: z.object({
       requirement: z.string().describe("Input to analyze as a potential software requirement."),
+      confidence: z.number().optional().describe("Confidence level for the requirement classification, between 0 and 1.")
     })
 }
 )
 
 //create a tool that classify language of the requirement
+//tool with confidence level of LLM
 const classify_language = tool(async (input) => {
   console.log("CLASSIFY LANGUAGE TOOL");
 
@@ -88,7 +94,9 @@ const classify_language = tool(async (input) => {
   const validLanguages = ["python", "javascript", "java", "cpp", "go", "typescript", "ruby", "php", "csharp", "c"];
   
   if (validLanguages.includes(language)) {
-      return language;
+      return {language : language,
+        confidence: input.confidence // restituisce anche la confidence passata in input
+      };
   }
   
   // Se il linguaggio non è riconosciuto, cerca di mapparlo a uno valido
@@ -98,13 +106,66 @@ const classify_language = tool(async (input) => {
   if (language.includes("c++")) return "cpp";
   
   // Default a python se non riconosciuto
-  return "python";
+  return {
+    language: "python", 
+    confidence: input.confidence
+  };
 }, {
   name: 'classify_language',
   description: 'Call to classify the language of the requirement.',
   schema: z.object({
     requirement: z.string().describe("The requirement text to analyze for language information."),
     context: z.string().describe("The GitHub repository context to provide context for language classification."),
+    confidence: z.number().optional().describe("Confidence level for the language classification, between 0 and 1.")
+  })
+})
+
+//create a tool that extracts a filename from the requirement
+//tool with confidence level of LLM
+const extract_filename = tool(async (input) => {
+  console.log("EXTRACT FILENAME TOOL");
+  
+  const response = await llm.invoke([
+    {
+      role: "system",
+      content: `You are an assistant that extracts an appropriate filename from a software requirement.
+      
+		Analyze the requirement and generate a filename that:
+		1. Reflects the main described functionality
+		2. Follows naming conventions for the ${input.language} language
+		3. Includes the correct file extension for the language
+		
+		Requirement to analyze: "${input.requirement}"
+		
+		Reply with ONLY the suggested filename, without any comments or additional explanation.`
+      }
+  ]);
+  
+  // Pulisci la risposta da eventuali caratteri non desiderati
+  let filename = response.content.trim();
+  
+  // Assicurati che il nome del file abbia l'estensione corretta
+  if (input.language === "python" && !filename.endsWith(".py")) {
+      filename = filename.replace(/\.\w+$/, "") + ".py";
+  } else if (input.language === "javascript" && !filename.endsWith(".js")) {
+      filename = filename.replace(/\.\w+$/, "") + ".js";
+  } else if (input.language === "java" && !filename.endsWith(".java")) {
+      filename = filename.replace(/\.\w+$/, "") + ".java";
+  } else if (input.language === "cpp" && !filename.endsWith(".cpp")) {
+      filename = filename.replace(/\.\w+$/, "") + ".cpp";
+  }
+  
+  return {
+    filename: filename,
+    confidence: input.confidence // restituisce anche la confidence passata in input
+  };
+}, {
+  name: 'extract_filename',
+  description: 'Estrae un nome di file appropriato dal requisito fornito.',
+  schema: z.object({
+    requirement: z.string().describe("Il requisito da cui estrarre il nome del file."),
+    language: z.string().describe("Il linguaggio di programmazione per determinare l'estensione corretta."),
+    confidence: z.number().optional().describe("Confidence level for the filename extraction, between 0 and 1.")
   })
 })
 
@@ -141,50 +202,6 @@ const generate_code = tool(async (input) => {
 }
 
 )
-
-//create a tool that extracts a filename from the requirement
-const extract_filename = tool(async (input) => {
-  console.log("EXTRACT FILENAME TOOL");
-  
-  const response = await llm.invoke([
-    {
-      role: "system",
-      content: `You are an assistant that extracts an appropriate filename from a software requirement.
-      
-		Analyze the requirement and generate a filename that:
-		1. Reflects the main described functionality
-		2. Follows naming conventions for the ${input.language} language
-		3. Includes the correct file extension for the language
-		
-		Requirement to analyze: "${input.requirement}"
-		
-		Reply with ONLY the suggested filename, without any comments or additional explanation.`
-      }
-  ]);
-  
-  // Pulisci la risposta da eventuali caratteri non desiderati
-  let filename = response.content.trim();
-  
-  // Assicurati che il nome del file abbia l'estensione corretta
-  if (input.language === "python" && !filename.endsWith(".py")) {
-      filename = filename.replace(/\.\w+$/, "") + ".py";
-  } else if (input.language === "javascript" && !filename.endsWith(".js")) {
-      filename = filename.replace(/\.\w+$/, "") + ".js";
-  } else if (input.language === "java" && !filename.endsWith(".java")) {
-      filename = filename.replace(/\.\w+$/, "") + ".java";
-  } else if (input.language === "cpp" && !filename.endsWith(".cpp")) {
-      filename = filename.replace(/\.\w+$/, "") + ".cpp";
-  }
-  
-  return filename;
-}, {
-  name: 'extract_filename',
-  description: 'Estrae un nome di file appropriato dal requisito fornito.',
-  schema: z.object({
-    requirement: z.string().describe("Il requisito da cui estrarre il nome del file."),
-    language: z.string().describe("Il linguaggio di programmazione per determinare l'estensione corretta.")
-  })
-})
 
 //create a tool that save the code into a file
 const save_code = tool(async (input) => {

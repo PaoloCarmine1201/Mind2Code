@@ -193,6 +193,14 @@ window.addEventListener('message', event => {
         document.getElementById('input').disabled = false;
         document.getElementById('send').disabled = false;
         document.getElementById('input').focus();
+    } else if (message.command === 'tool_output') {
+        // Rimuovi il messaggio di caricamento se presente
+        const loadingMessages = document.querySelectorAll('.loading');
+        loadingMessages.forEach(el => {
+            el.parentElement.remove();
+        });
+        // Aggiungi l'output del tool
+        appendMessage('Tool', message.text);
     } else if (message.command === 'clearChat') {
         // Comando per pulire la chat
         clearChat();

@@ -43,99 +43,38 @@ export class ChatViewProvider {
     webview.onDidReceiveMessage(async message => {
       if (message.command === 'ask') {
         try {
-          // Se stiamo aspettando una risposta si/no
-          if (this.waitingForContinuation) {
-            const response = message.text.toLowerCase();
-            
-            // Verifica se l'utente vuole continuare
-            if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
-              // Resetta il flag di attesa
-              this.waitingForContinuation = false;
-              
-              // Mostra un indicatore di caricamento
-              webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
-              
-              // Continua la conversazione senza nuovi input (usa lo stato esistente)
-              const result = await runAgentForExtention(null, webview);
-              //console.log("Ho ricevuto questo result dalla continuazione:", result);
-              
-                // Se non è un requisito, non chiedere di continuare
-                if (result.is_requirement === false) {
-                    webview.postMessage({ 
-                        command: 'reply', 
-                        text: "❌ Non è un requisito, termino l'esecuzione"
-                    });
-                return;
-                }
-
-              // Se il codice è stato salvato, termina il ciclo
-              if (result.code_saved) {
-                webview.postMessage({ 
-                  command: 'reply', 
-                  text: '✅ Codice salvato con successo. Puoi iniziare una nuova richiesta.' 
-                });
-                this.conversationState = null; // Resetta lo stato per una nuova conversazione
+            if (this.waitingForContinuation) {
+              const response = message.text.toLowerCase();
+              if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
+                this.waitingForContinuation = false;
+                webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
+                const result = await runAgentForExtention(null, webview);
+                await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
               } else {
-                // Altrimenti, chiedi nuovamente se continuare
-                this.waitingForContinuation = true;
                 webview.postMessage({ 
                   command: 'reply', 
-                  text: 'Vuoi continuare? (si/no)' 
+                  text: 'Fine dell\'esecuzione fermata dall\'utente. Puoi iniziare una nuova richiesta.' 
                 });
+                this.conversationState = null;
+                this.waitingForContinuation = false;
               }
             } else {
-              // L'utente non vuole continuare
-              webview.postMessage({ 
-                command: 'reply', 
-                text: 'Fine dell\'esecuzione fermata dall\'utente. Puoi iniziare una nuova richiesta.' 
-              });
-              
-              // Resetta lo stato e il flag di attesa
-              this.conversationState = null;
-              this.waitingForContinuation = false;
+              webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
+              const inputs = {
+                is_requirement: undefined,
+                messages: [new HumanMessage(message.text)],
+                input: message.text,
+                repo_context: JSON.stringify(repo_context),
+                language: undefined,
+                generated_code: undefined,
+                filename: undefined,
+                code_saved: false,
+                tool_confidence: undefined, // Imposta un valore di default
+              }; 
+              const result = await runAgentForExtention(inputs, webview);
+              await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
             }
-          } else {
-            // Nuova richiesta (non stiamo aspettando una risposta si/no)
-            
-            // Mostra un indicatore di caricamento
-            webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
-            
-            // Prepara l'input per l'agente
-            const inputs = {
-              is_requirement: undefined,
-              messages: [new HumanMessage(message.text)],
-              input: message.text,
-              repo_context: JSON.stringify(repo_context),
-              language: undefined,
-              generated_code: undefined,
-              filename: undefined,
-              code_saved: false
-            };
-            
-            // Esegui l'agente e ottieni il risultato
-            const result = await runAgentForExtention(inputs, webview);
-            //console.log("Ho ricevuto questo result:", result);
-            
-            // Salva lo stato della conversazione
-            this.conversationState = result;
-            
-            // Se il codice è stato salvato, non chiedere di continuare
-            if (result.code_saved) {
-              webview.postMessage({ 
-                command: 'reply', 
-                text: '✅ Codice salvato con successo. Puoi iniziare una nuova richiesta.' 
-              });
-              return;
-            }
-            
-            // Altrimenti, chiedi se continuare
-            this.waitingForContinuation = true;
-            webview.postMessage({ 
-              command: 'reply', 
-              text: 'Vuoi continuare? (si/no)' 
-            });
-          }
-        } catch (error) {
+          } catch (error) {
           console.error('Errore durante l\'elaborazione:', error);
           webview.postMessage({ 
             command: 'reply', 
@@ -150,6 +89,8 @@ export class ChatViewProvider {
     });
   }
 
+
+  
   // Metodo per pulire la chat
   clearChat() {
     if (this._view) {
@@ -178,5 +119,54 @@ export class ChatViewProvider {
       </body>
       </html>
     `;
+  }
+}
+
+async function handleAgentResult(result, webview, continueCallback) {
+  // Se il codice è stato salvato, termina
+  if (result.code_saved) {
+    webview.postMessage({ 
+      command: 'reply', 
+      text: '✅ Codice salvato con successo. Puoi iniziare una nuova richiesta.' 
+    });
+    this.conversationState = null;
+    return;
+  }
+
+  // Se c'è un tool_output, invialo come messaggio separato
+  if (result.tool_output) {
+    webview.postMessage({
+      command: 'tool_output',
+      text: result.tool_output
+    });
+  }
+
+  // Se non è un requisito, termina
+  if (result.is_requirement === false) {
+    webview.postMessage({ 
+      command: 'reply', 
+      text: "❌ Non è un requisito, termino l'esecuzione"
+    });
+    return;
+  }
+
+  // --- Qui la logica generalizzata per la confidence ---
+  if (result.tool_confidence > 0.7) {
+    webview.postMessage({
+      command: 'reply',
+      text: `Confidence > 0.7, continuo automaticamente.`
+    });
+    webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
+    // Continua automaticamente
+    const autoContinueResult = await continueCallback();
+    // Ricorsione: gestisci il nuovo risultato
+    await handleAgentResult.call(this, autoContinueResult, webview, continueCallback);
+  } else {
+    // Chiedi all'utente se vuole continuare
+    this.waitingForContinuation = true;
+    webview.postMessage({
+      command: 'reply',
+      text: 'Vuoi continuare? (si/no)'
+    });
   }
 }

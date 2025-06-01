@@ -12,18 +12,25 @@ function appendMessage(sender, text, isLoading = false) {
     // Applica classi diverse in base al mittente
     if (sender === 'Tu') {
         messageDiv.className = 'message user-message';
+    } else if (sender === 'Tool') {
+        messageDiv.className = 'message tool-message';
     } else {
         messageDiv.className = 'message assistant-message';
     }
+
     
     // Crea l'intestazione del messaggio
     const headerDiv = document.createElement('div');
-    headerDiv.className = 'user-header';
-
-    if (sender !== 'Tu') {
-        headerDiv.className += ' assistant-header';
+    if (sender === 'Tu') {
+        headerDiv.className = 'user-header';
+        headerDiv.textContent = 'Tu';
+    } else if (sender === 'Tool') {
+        headerDiv.className = 'tool-header';
+        headerDiv.textContent = '🛠️ Tool';
+    } else {
+        headerDiv.className = 'assistant-header';
+        headerDiv.textContent = '🤖 Assistente';
     }
-    headerDiv.textContent = sender;
     messageDiv.appendChild(headerDiv);
     
     // Aggiungi il contenuto del messaggio
@@ -76,16 +83,24 @@ function appendMessageWithoutSaving(sender, text) {
     
     if (sender === 'Tu') {
         messageDiv.className = 'message user-message';
+    } else if (sender === 'Tool') {
+        messageDiv.className = 'message tool-message';
     } else {
         messageDiv.className = 'message assistant-message';
     }
+
     
     const headerDiv = document.createElement('div');
-    headerDiv.className = 'user-header';
-    if (sender !== 'Tu') {
-        headerDiv.className += ' assistant-header';
+    if (sender === 'Tu') {
+        headerDiv.className = 'user-header';
+        headerDiv.textContent = 'Tu';
+    } else if (sender === 'Tool') {
+        headerDiv.className = 'tool-header';
+        headerDiv.textContent = '🛠️ Tool';
+    } else {
+        headerDiv.className = 'assistant-header';
+        headerDiv.textContent = '🤖 Assistente';
     }
-    headerDiv.textContent = sender;
     messageDiv.appendChild(headerDiv);
     
     const contentDiv = document.createElement('div');
@@ -115,7 +130,7 @@ function markdownToHtml(text) {
     text = text.replace(/```([\s\S]*?)```/g, function(match, code) {
         return `<div class="code-block">
                   <div class="code-header">
-                    <span>Codice</span>
+                    <span>Codice generato</span>
                   </div>
                   <div class="code-content">${escapeHtml(code)}</div>
                 </div>`;
@@ -226,9 +241,9 @@ window.addEventListener('message', event => {
 
         if (toolName === 'is_requirement') {
             if (text.includes('true')) {
-                text = "Sì, questo è un requisito! Continuiamo con il prossimo passo.";
+                text = "<strong>Sì</strong>, questo è un requisito! Continuiamo con il prossimo passo.";
             } else if (text.includes('false')) {
-                text = "Non sembra un requisito. Vuoi riprovare o chiedere altro?";
+                text = "<strong>Non sembra un requisito</strong>. Vuoi riprovare o chiedere altro?";
             }
         } else if (toolName === 'classify_language') {
             text = `Ho individuato il linguaggio migliore per questo requisito: <strong>${text}</strong>. Procedo!`;

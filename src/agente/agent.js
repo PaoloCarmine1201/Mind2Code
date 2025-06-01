@@ -222,7 +222,9 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   let codeAlreadyPrinted = false;
   let isRequirement = undefined;
   let codeSaved = false;
+  let generatedCode = undefined;
   let toolConfidence = 0.0;
+  let msg = null;
   const printedMessages = new Set();
   
     // Se stiamo iniziando una nuova conversazione, resetta l'agente
@@ -238,7 +240,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   try {
     // Utilizziamo gli input iniziali o null per continuare la conversazione
     for await (const { messages, repo_context, is_requirement, language, generated_code, filename, code_saved, tool_confidence } of await agentBuilder.stream(initialInputs, streamConfig)) {
-      const msg = messages?.[messages.length - 1];
+      msg = messages?.[messages.length - 1];
 
       if (tool_confidence !== undefined) {
         toolConfidence = tool_confidence;
@@ -252,12 +254,16 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         // Se non è un requisito, interrompi immediatamente
         if (isRequirement === false) {
           console.log("❌ Non è un requisito, termino l'esecuzione");
-          return { codeAlreadyPrinted: false, is_requirement: false };
+          return { codeAlreadyPrinted: false, is_requirement: false, message: msg };
         }
       }
 
       if (code_saved === true) {
       	codeSaved = code_saved;
+      }
+
+      if (generated_code !== undefined) {
+        generatedCode = generated_code;
       }
 
       // Gestione dei messaggi
@@ -298,50 +304,31 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         } else {
           // Aggiungi il messaggio formattato al set e invialo alla webview solo se non è già stato stampato
           if (!printedMessages.has(toPrint)) {
-            console.log("📝 Messaggio LLM:", toPrint);
+            //console.log("📝 Messaggio LLM:", toPrint);
             //Controllo che toPrint sia un oggetto JSON
             if (typeof toPrint === "object" && toPrint!== null) {
               toPrint = JSON.stringify(toPrint);
             }
-            webview.postMessage({ command: 'reply', text: toPrint });
+            webview.postMessage({ command: 'initialMessage', text: toPrint });
             printedMessages.add(toPrint);
           }
         }
-      } else if (msg?.tool_calls?.length > 0) {
-        const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
-        const toolMessage = `🔧 Chiamata al tool: ${toolName}`;
-        // Invia il messaggio del tool solo se non è già stato stampato
-        if (!printedMessages.has(toolMessage)) {
-            webview.postMessage({ command: 'reply', text: toolMessage });
-            printedMessages.add(toolMessage);
-        }
       }
-
 
       // Gestione del codice generato
       if (generated_code !== undefined && !codeAlreadyPrinted && is_requirement === true) {
-        //console.log("💻 Codice generato disponibile");
-        webview.postMessage({ command: 'reply', text: "💻 Codice generato disponibile" });
-        try {
-          console.log("STAMPO IL GENERATED CODE: " + generated_code);
-          const parsedCode = JSON.parse(generated_code);
-          //console.log("✅ Codice generato correttamente:");
-          webview.postMessage({ command: 'reply', text: "✅ Codice generato correttamente:" });
-          //console.log(parsedCode.generated_code || generated_code);
-        } catch (e) {
-          webview.postMessage({ command: 'reply', text: "✅ Codice generato correttamente qui:" });
-        }
+        //console.log("STAMPO IL GENERATED CODE: " + generated_code);
         codeAlreadyPrinted = true;
         console.log("-----\n");
       }
 
       if (codeSaved === true) {
-        return { codeAlreadyPrinted: true, is_requirement: true, code_saved: true, tool_confidence: toolConfidence };
+        return { codeAlreadyPrinted: true, is_requirement: true, code_saved: true, tool_confidence: toolConfidence, message: msg };
       }
 
     }
     
-    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence };
+    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);
     return { codeAlreadyPrinted, is_requirement: isRequirement, error: true, tool_confidence: toolConfidence};

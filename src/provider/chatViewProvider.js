@@ -124,7 +124,10 @@ export class ChatViewProvider {
 }
 
 async function handleAgentResult(result, webview, continueCallback) {
+  const msg = result?.message || null;
+
   // Se il codice è stato salvato, termina
+  //TODO: qui verranno crete le domande follow up
   if (result.code_saved) {
     webview.postMessage({ 
       command: 'reply', 
@@ -132,6 +135,13 @@ async function handleAgentResult(result, webview, continueCallback) {
     });
     this.conversationState = null;
     return;
+  }
+
+  if (result.generated_code) {
+    webview.postMessage({ 
+      command: 'reply', 
+      text: '✅ Codice generato disponibile.\n Puoi visualizzare il codice generato qui.'
+    });
   }
 
   // Se non è un requisito, termina
@@ -143,27 +153,45 @@ async function handleAgentResult(result, webview, continueCallback) {
     return;
   }
 
+  /*
+  if (msg?.tool_calls?.length > 0 && msg) {
+    if(result.tool_confidence < 0.7) {
+      const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
+      const toolMessage = `🔧 Chiamata al tool: ${toolName}`;
+      webview.postMessage({ command: 'reply', text: toolMessage });
+    }
+  }*/
+  
   // --- Qui la logica generalizzata per la confidence ---
-  if (result.tool_confidence > 0.7) {
+  if (result.tool_confidence > 0.7 && msg?.tool_calls?.length > 0 && msg) {
+    const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
+    const toolMessage = `${toolName}`;
+    //webview.postMessage({ command: 'reply', text: toolMessage });
     webview.postMessage({
       command: 'reply',
-      text: `Confidence > 0.7, continuo automaticamente.`
+      text: 'La tua richiesta è molto chiara, sono sicuro del prossimo passo da eseguire.\n' + 
+        'Effettuo automaticamente la chiamata al tool ' + toolMessage + '.'
     });
     webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
     // Continua automaticamente
     const autoContinueResult = await continueCallback();
     // Ricorsione: gestisci il nuovo risultato
-    await handleAgentResult.call(this, autoContinueResult, webview, continueCallback);
+    await handleAgentResult.call(this, autoContinueResult, webview, continueCallback); 
   } else {
     // Chiedi all'utente se vuole continuare
     this.waitingForContinuation = true;
-    webview.postMessage({
-      command: 'askConfirmation',
-      text: 'Vuoi continuare con l\'esecuzione del tool?',
-      options: [
-          { label: 'Esegui tool', value: 'si' },
-          { label: 'Annulla esecuzione', value: 'no' }
-        ]
-      });
+    if(msg?.tool_calls?.length > 0 && msg && result.tool_confidence < 0.7) {
+      const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
+      const toolMessage = `Non sono abbastanza sicuro della tua richiesta, ho bisogno di chiamare il tool: ${toolName}\n`;
+      webview.postMessage({
+        command: 'askConfirmation',
+        text: toolMessage + 
+        'Vuoi continuare con l\'esecuzione del tool?',
+        options: [
+            { label: 'Esegui tool', value: 'si' },
+            { label: 'Annulla esecuzione', value: 'no' }
+          ]
+        });
+    }
   }
 }

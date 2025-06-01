@@ -179,6 +179,14 @@ document.getElementById('input').addEventListener('keypress', (e) => {
     }
 });
 
+//funzione che elimina i messaggi di caricamento
+function removeLoadingMessages() {
+    const loadingMessages = document.querySelectorAll('.loading');
+    loadingMessages.forEach(el => {
+        el.parentElement.remove();
+    });
+}
+
 // Gestisci i messaggi dall'estensione
 window.addEventListener('message', event => {
     const message = event.data;
@@ -188,12 +196,18 @@ window.addEventListener('message', event => {
         showConfirmationButtons(message.options);
     }
     
+    if (message.command === 'initialMessage') {
+        // Rimuovi eventuali messaggi di caricamento
+        removeLoadingMessages();
+
+        // Aggiungi il messaggio iniziale dell'assistente
+        appendMessage('Assistente', "La tua richiesta iniziale è stata ricevuta. "+
+            "\nIniziamo controllando che il requisito inviato sia valido.\n"+
+            "La tua richiesta è: " + message.text);
+    }
     if (message.command === 'reply') {
         // Rimuovi il messaggio di caricamento se presente
-        const loadingMessages = document.querySelectorAll('.loading');
-        loadingMessages.forEach(el => {
-            el.parentElement.remove();
-        });
+        removeLoadingMessages();
         
         // Aggiungi la risposta dell'assistente
         appendMessage('Assistente', message.text);
@@ -204,35 +218,34 @@ window.addEventListener('message', event => {
         document.getElementById('input').focus();
     } else if (message.command === 'tool_output') {
         // Rimuovi il messaggio di caricamento se presente
-        const loadingMessages = document.querySelectorAll('.loading');
-        loadingMessages.forEach(el => {
-            el.parentElement.remove();
-        });
-        // Personalizza la risposta in base al tool
-    let text = message.text;
-    const toolName = message.toolName;
+        removeLoadingMessages();
 
-    if (toolName === 'is_requirement') {
-        if (text.includes('true')) {
-            text = "Sì, questo è un requisito! Continuiamo con il prossimo passo.";
-        } else if (text.includes('false')) {
-            text = "Non sembra un requisito. Vuoi riprovare o chiedere altro?";
+        // Personalizza la risposta in base al tool
+        let text = message.text;
+        const toolName = message.toolName;
+
+        if (toolName === 'is_requirement') {
+            if (text.includes('true')) {
+                text = "Sì, questo è un requisito! Continuiamo con il prossimo passo.";
+            } else if (text.includes('false')) {
+                text = "Non sembra un requisito. Vuoi riprovare o chiedere altro?";
+            }
+        } else if (toolName === 'classify_language') {
+            text = `Ho individuato il linguaggio migliore per questo requisito: <strong>${text}</strong>. Procedo!`;
+        } else if (toolName === 'extract_filename') {
+            text = `Ho scelto questo nome file per te: <strong>${text}</strong>. Passo alla generazione del codice!`;
+        } else if (toolName === 'generate_code') {
+            console.log('Codice generato:', text);
+            text = markdownToHtml(text);
+        } else if (toolName === 'save_code') {
+            text = "Codice salvato con successo! Qui sulla tua destra puoi vedere il file generato.";
         }
-    } else if (toolName === 'classify_language') {
-        text = `Ho individuato il linguaggio migliore per questo requisito: <strong>${text}</strong>. Procedo!`;
-    } else if (toolName === 'extract_filename') {
-        text = `Ho scelto questo nome file per te: <strong>${text}</strong>. Passo alla generazione del codice!`;
-    } else if (toolName === 'generate_code') {
-        console.log('Codice generato:', text);
-        text = markdownToHtml(text);
-    } else if (toolName === 'save_code') {
-        text = "Codice salvato con successo! Se vuoi, puoi fare un'altra richiesta.";
-    }
         appendMessage('Tool', text);
-    } else if (message.command === 'clearChat') {
-        // Comando per pulire la chat
-        clearChat();
-    }
+
+        } else if (message.command === 'clearChat') {
+            // Comando per pulire la chat
+            clearChat();
+        }
 });
 
 // Funzione per mostrare i bottoni

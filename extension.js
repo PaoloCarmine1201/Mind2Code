@@ -20,8 +20,18 @@ export function activate(context) {
 
 	  // Pulisci la chat all'avvio dell'estensione
 	// Utilizziamo setTimeout per assicurarci che la webview sia completamente caricata
-	setTimeout(() => {
-		chatViewProvider.clearChat();
+	setTimeout(async() => {
+		// Ottieni il contesto della repository
+		const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		if (workspaceFolder) {
+			const repoContext = await getGithubContext(workspaceFolder, context);
+			if (repoContext) {
+				// Pulisci la chat ma mantieni il messaggio del contesto repository
+				chatViewProvider.clearChat();
+				// Aggiorna il messaggio del contesto repository
+				chatViewProvider.updateRepoContext(repoContext);
+			}
+		}
 	}, 1000);
 
 	const commands = [
@@ -95,6 +105,9 @@ export function activate(context) {
 				
 				// Pulisci la chat
 				chatViewProvider.clearChat();
+
+				// Invia il nuovo contesto della repository
+				chatViewProvider.updateRepoContext(repoContext);
 				
 				progress.report({ increment: 10, message: "Completato!" });
 				

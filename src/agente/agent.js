@@ -84,9 +84,7 @@ async function updatedState(state) {
 			}
 
 			if (typeof content === "object" && content !== null) {
-				//console.log("SONO QUI", content.requirement, content.confidence);
 				if (content.requirement === false || content.requirement === "false") {
-				//console.log("Sono quiiiii ", content);
 				return {
 					...state,
 					is_requirement: false,

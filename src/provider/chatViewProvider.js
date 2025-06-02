@@ -36,9 +36,13 @@ export class ChatViewProvider {
       repo_context = createGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);    
     }
 
-    console.log("Profilo della repository trovato:", JSON.stringify(repo_context, null, 2));
-
     webview.html = this.getHtml(scriptUri, styleUri);
+    
+    webview.postMessage({
+      command: 'repoContext',
+      text: repo_context
+    });
+    //console.log("Profilo della repository trovato:", JSON.stringify(repo_context, null, 2));
 
     webview.onDidReceiveMessage(async message => {
       if (message.command === 'ask') {
@@ -70,7 +74,7 @@ export class ChatViewProvider {
                 filename: undefined,
                 code_saved: false,
                 tool_confidence: undefined, // Imposta un valore di default
-              }; 
+              };
               const result = await runAgentForExtention(inputs, webview);
               await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
             }
@@ -89,7 +93,15 @@ export class ChatViewProvider {
     });
   }
 
-
+  // Metodo per aggiornare il contesto della repository
+  updateRepoContext(repoContext) {
+    if (this._view) {
+      this._view.webview.postMessage({
+        command: 'updateRepoContext',
+        text: repoContext
+      });
+    }
+  }
   
   // Metodo per pulire la chat
   clearChat() {
@@ -152,15 +164,6 @@ async function handleAgentResult(result, webview, continueCallback) {
     });
     return;
   }
-
-  /*
-  if (msg?.tool_calls?.length > 0 && msg) {
-    if(result.tool_confidence < 0.7) {
-      const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
-      const toolMessage = `🔧 Chiamata al tool: ${toolName}`;
-      webview.postMessage({ command: 'reply', text: toolMessage });
-    }
-  }*/
   
   // --- Qui la logica generalizzata per la confidence ---
   if (result.tool_confidence > 0.7 && msg?.tool_calls?.length > 0 && msg) {

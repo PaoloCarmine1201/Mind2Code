@@ -14,6 +14,8 @@ function appendMessage(sender, text, isLoading = false) {
         messageDiv.className = 'message user-message';
     } else if (sender === 'Tool') {
         messageDiv.className = 'message tool-message';
+    } else if (sender === 'InfoRepository') {
+        messageDiv.className = 'message info-repo-message';
     } else {
         messageDiv.className = 'message assistant-message';
     }
@@ -27,6 +29,9 @@ function appendMessage(sender, text, isLoading = false) {
     } else if (sender === 'Tool') {
         headerDiv.className = 'tool-header';
         headerDiv.textContent = '🛠️ Tool';
+    } else if (sender === 'InfoRepository') {
+        headerDiv.className = 'info-repo-header';
+        headerDiv.textContent = '📦 Contesto Repository';
     } else {
         headerDiv.className = 'assistant-header';
         headerDiv.textContent = '🤖 Assistente';
@@ -81,15 +86,19 @@ function appendMessageWithoutSaving(sender, text) {
     const chatContainer = document.querySelector('.chat-container');
     const messageDiv = document.createElement('div');
     
+    // Applica classi diverse in base al mittente
     if (sender === 'Tu') {
         messageDiv.className = 'message user-message';
     } else if (sender === 'Tool') {
         messageDiv.className = 'message tool-message';
+    } else if (sender === 'InfoRepository') {
+        messageDiv.className = 'message info-repo-message';
     } else {
         messageDiv.className = 'message assistant-message';
     }
 
     
+    // Crea l'intestazione del messaggio
     const headerDiv = document.createElement('div');
     if (sender === 'Tu') {
         headerDiv.className = 'user-header';
@@ -97,6 +106,9 @@ function appendMessageWithoutSaving(sender, text) {
     } else if (sender === 'Tool') {
         headerDiv.className = 'tool-header';
         headerDiv.textContent = '🛠️ Tool';
+    } else if (sender === 'InfoRepository') {
+        headerDiv.className = 'info-repo-header';
+        headerDiv.textContent = '📦 Contesto Repository';
     } else {
         headerDiv.className = 'assistant-header';
         headerDiv.textContent = '🤖 Assistente';
@@ -113,15 +125,28 @@ function appendMessageWithoutSaving(sender, text) {
 
 // Funzione per pulire la chat
 function clearChat() {
+    // Salva il messaggio del contesto repository se esiste
+    const repoContextMessage = chatMessages.find(msg => msg.sender === 'InfoRepository');
+    
     // Pulisci l'array dei messaggi
     chatMessages = [];
     
-    // Salva lo stato vuoto
+    // Ripristina il messaggio del contesto repository se esisteva
+    if (repoContextMessage) {
+        chatMessages.push(repoContextMessage);
+    }
+    
+    // Salva lo stato aggiornato
     vscode.setState({ messages: chatMessages });
     
     // Pulisci l'interfaccia utente
     const chatContainer = document.querySelector('.chat-container');
     chatContainer.innerHTML = '';
+    
+    // Ripristina il messaggio del contesto repository nell'interfaccia se esisteva
+    if (repoContextMessage) {
+        appendMessageWithoutSaving(repoContextMessage.sender, repoContextMessage.text);
+    }
 }
 
 // Funzione semplice per convertire markdown in HTML
@@ -205,6 +230,64 @@ function removeLoadingMessages() {
 // Gestisci i messaggi dall'estensione
 window.addEventListener('message', event => {
     const message = event.data;
+
+    if (message.command === 'repoContext') {
+        removeLoadingMessages();
+        // Aggiungi il contesto della repository
+        const ctx = message.text;
+        const namingStyle =
+        ctx.namingExamples?.controllers?.[0]?.namingStyle ||
+        ctx.namingExamples?.services?.[0]?.namingStyle ||
+        'camelCase';
+
+        const text = `
+                📦 Repository **${ctx.repo}** di ${ctx.owner}
+
+                • Linguaggi: ${ctx.languages.join(', ')}
+                • Framework: ${ctx.framework.join(', ')}
+                • Configurazione: ${ctx.configFiles.join(', ')}
+                • Naming Style: ${namingStyle.join(', ')}
+
+                🧠 Userò queste informazioni per guidare le mie scelte (es. convenzioni di naming, struttura del file, ecc.)
+        `.trim();
+
+        const sender = 'InfoRepository';
+        appendMessage(sender, text);
+    }
+
+    if (message.command === 'updateRepoContext') {
+        // Rimuovi il vecchio messaggio del contesto repository
+        const oldRepoContextIndex = chatMessages.findIndex(msg => msg.sender === 'InfoRepository');
+        if (oldRepoContextIndex !== -1) {
+            chatMessages.splice(oldRepoContextIndex, 1);
+        }
+        
+        // Rimuovi il vecchio messaggio dall'interfaccia
+        const oldRepoContextElements = document.querySelectorAll('.info-repo-message');
+        oldRepoContextElements.forEach(el => el.remove());
+        
+        // Aggiungi il nuovo contesto della repository
+        const ctx = message.text;
+        const namingStyle =
+        ctx.namingExamples?.controllers?.[0]?.namingStyle ||
+        ctx.namingExamples?.services?.[0]?.namingStyle ||
+        'camelCase';
+        console.log('Aggiornamento contesto della repository:', ctx);
+
+        const text = `
+                📦 Repository **${ctx.repo}** di ${ctx.owner}
+
+                • Linguaggi: ${ctx.languages.join(', ')}
+                • Framework: ${ctx.framework.join(', ')}
+                • Configurazione: ${ctx.configFiles.join(', ')}
+                • Naming Style: ${namingStyle}
+
+                🧠 Userò queste informazioni per guidare le mie scelte (es. convenzioni di naming, struttura del file, ecc.)
+        `.trim();
+
+        const sender = 'InfoRepository';
+        appendMessage(sender, text);
+    }
 
     if (message.command === 'askConfirmation') {
         appendMessage('Assistente', message.text);

@@ -288,7 +288,7 @@ export async function createGithubContext(workspaceFolder, context) {
       };
 
       context.globalState.update('repoContext', repoProfile);
-      console.log("Profilo della repository creato:", JSON.stringify(repoProfile, null, 2));
+      //console.log("Profilo della repository creato:", JSON.stringify(repoProfile, null, 2));
       return repoProfile;
   });
 }
@@ -302,8 +302,6 @@ export async function getGithubContext(workspaceFolder, context){
         console.log(`Owner get: ${owner}, Repo get: ${repo}`);
         const repoContext = context.globalState.get('repoContext');
         if (repoContext) {
-            //console.log("Context repository:", JSON.stringify(repoContext, null, 2));
-            console.log("TUTTO OK")
             return repoContext;
         } else {
             console.log("Nessun profilo della repository trovato nel context.");

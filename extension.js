@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { ChatViewProvider } from './src/provider/chatViewProvider.js';
 import { resetAgent } from './src/agente/agent.js';
 import { createGithubContext, getGithubContext, clearGithubContext } from './src/commands/githubContextCommand.js';
+import { StartTomQuiz, getToMProfile, clearToMProfile } from './src/commands/TheoryOfMindCommand.js';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -31,6 +32,12 @@ export function activate(context) {
 				// Aggiorna il messaggio del contesto repository
 				chatViewProvider.updateRepoContext(repoContext);
 			}
+		}
+
+		const tomProfile = await getToMProfile(context);
+		if (!tomProfile) {
+			// Se non esiste un profilo ToM, avvia il quiz
+			StartTomQuiz(context);
 		}
 	}, 1000);
 
@@ -116,6 +123,30 @@ export function activate(context) {
 				
 				return repoContext;
 			  });
+			}
+		},
+		{
+			name: 'openai-chat-agent.startToMProfileQuiz',
+			callback: () => {
+			  StartTomQuiz(context);
+			}
+		},
+		{
+			name: 'openai-chat-agent.getToMProfile',
+			callback: async () => {
+			  const profile = await getToMProfile(context);
+			  if (profile) {
+				vscode.window.showInformationMessage(`Profilo ToM: ${profile}`);
+			  } else {
+				vscode.window.showErrorMessage('Nessun profilo ToM trovato.');
+			  }
+			}
+		},
+		{
+			name: 'openai-chat-agent.clearToMProfile',
+			callback: async () => {
+			  await clearToMProfile(context);
+			  vscode.window.showInformationMessage('Profilo ToM eliminato con successo.');
 			}
 		}
 	  ];

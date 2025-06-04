@@ -38,6 +38,21 @@
         "command": "openai-chat-agent.refreshExtension",
         "title": "Refresh Extension",
         "category": "OpenAI Chat"
+      },
+      {
+        "command": "openai-chat-agent.startToMProfileQuiz",
+        "title": "Start ToM Profile Quiz",
+        "category": "OpenAI Chat"
+      },
+      {
+        "command": "openai-chat-agent.getToMProfile",
+        "title": "Get ToM Profile",
+        "category": "OpenAI Chat"
+      },
+      {
+        "command": "openai-chat-agent.clearToMProfile",
+        "title": "Clear ToM Profile",
+        "category": "OpenAI Chat"
       }
     ],
     "menus": {

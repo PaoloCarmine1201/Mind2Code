@@ -13,6 +13,15 @@ import { StartTomQuiz, getToMProfile, clearToMProfile } from './src/commands/The
  * @param {vscode.ExtensionContext} context
  */
 export function activate(context) {
+	let tomProfile = null;
+	setTimeout(async () => {
+		tomProfile = await getToMProfile(context);
+		if (tomProfile === null || !tomProfile || tomProfile === undefined) {
+			// Se non esiste un profilo ToM, avvia il quiz
+			StartTomQuiz(context);
+		}
+	}, 1000);
+
 	const chatViewProvider = new ChatViewProvider(context.extensionUri, context);
 	// Registra il provider
 	context.subscriptions.push(
@@ -33,12 +42,6 @@ export function activate(context) {
 				chatViewProvider.updateRepoContext(repoContext);
 			}
 		}
-
-		const tomProfile = await getToMProfile(context);
-		if (!tomProfile) {
-			// Se non esiste un profilo ToM, avvia il quiz
-			StartTomQuiz(context);
-		}
 	}, 1000);
 
 	const commands = [
@@ -53,8 +56,11 @@ export function activate(context) {
 			  vscode.window.showErrorMessage("Nessuna cartella di workspace attiva.");
 			  return;
 			}
-			await createGithubContext(workspaceFolder, context);
+			const newRepoContext = await createGithubContext(workspaceFolder, context);
 			vscode.window.showInformationMessage('Profilo della repository salvato con successo.');
+
+			// Aggiorna il contesto della repository nella chat
+			chatViewProvider.updateRepoContext(newRepoContext);
 		  } 
 		},
 		{
@@ -136,6 +142,7 @@ export function activate(context) {
 			callback: async () => {
 			  const profile = await getToMProfile(context);
 			  if (profile) {
+				chatViewProvider.sendToMProfileToChat(profile);
 				vscode.window.showInformationMessage(`Profilo ToM: ${profile}`);
 			  } else {
 				vscode.window.showErrorMessage('Nessun profilo ToM trovato.');

@@ -44,8 +44,15 @@ export async function StartTomQuiz(context) {
         undefined,
         context.subscriptions
     );
+
+    panel.onDidDispose(async () => {
+      const userProfile = await getToMProfile(context);
+      if (!userProfile || userProfile.length < 7) {
+          vscode.window.showWarningMessage('Devi completare il quiz per continuare.');
+          StartTomQuiz(context); // Riapre il quiz
+      }
+    });
 }
-//TODO: Cambiare il value dei radio e checkbox in modo che siano più comprensibili per l'utente, ad esempio: "beginner" -> "Principiante (meno di 1 anno)"
 function getHtml(webview, context, styleUri) {
     return `
       <!DOCTYPE html>
@@ -63,10 +70,10 @@ function getHtml(webview, context, styleUri) {
         <div class="section">
         <h2>Qual è il tuo livello di esperienza nella programmazione?</h2>
         ${renderRadio('experienceLevel', 'Qual è il tuo livello di esperienza nella programmazione?', [
-          { value: 'beginner::Principiante (meno di 1 anno) - autonomia molto limitata', label: 'Principiante (meno di 1 anno)' },
-          { value: 'intermediate::Intermedio (1-3 anni) - richiede supporto', label: 'Intermedio (1-3 anni)' },
-          { value: 'advanced::Avanzato (3-5 anni) - familiarità con librerie e pattern', label: 'Avanzato (3-5 anni)' },
-          { value: 'expert::Esperto (5+ anni) - progetta, ottimizza e scala sistemi con sicurezza', label: 'Esperto (più di 5 anni)' }
+          { value: 'beginner::Principiante (meno di 1 anno), autonomia molto limitata', label: 'Principiante (meno di 1 anno)' },
+          { value: 'intermediate::Intermedio (1-3 anni), richiede supporto', label: 'Intermedio (1-3 anni)' },
+          { value: 'advanced::Avanzato (3-5 anni), familiarità con librerie e pattern', label: 'Avanzato (3-5 anni)' },
+          { value: 'expert::Esperto (5+ anni), progetta, ottimizza e scala sistemi con sicurezza', label: 'Esperto (più di 5 anni)' }
         ])}
         </div>
         
@@ -84,10 +91,10 @@ function getHtml(webview, context, styleUri) {
         <div class="section">
         <h2>Che livello di complessità del codice preferisci?</h2>
         ${renderRadio('codeComplexity', 'Che livello di complessità del codice preferisci?', [
-          { value: 'simple::Semplice - leggibile e didattico, anche se più lungo', label: 'Semplice e facile da capire, anche se più verboso' },
-          { value: 'balanced::Bilanciato - equilibrio tra chiarezza e concisione', label: 'Bilanciato tra leggibilità e concisione' },
-          { value: 'advanced::Avanzato - include design pattern e strutture moderne', label: 'Avanzato, utilizzando pattern e tecniche moderne' },
-          { value: 'optimized::Ottimizzato - performante, ma meno leggibile', label: 'Ottimizzato, anche se più difficile da leggere' }
+          { value: 'simple::Semplice, leggibile e didattico, anche se più lungo', label: 'Semplice e facile da capire, anche se più verboso' },
+          { value: 'balanced::Bilanciato, equilibrio tra chiarezza e concisione', label: 'Bilanciato tra leggibilità e concisione' },
+          { value: 'advanced::Avanzato, include design pattern e strutture moderne', label: 'Avanzato, utilizzando pattern e tecniche moderne' },
+          { value: 'optimized::Ottimizzato, performante, ma meno leggibile', label: 'Ottimizzato, anche se più difficile da leggere' }
         ])}
         </div>
         
@@ -108,9 +115,9 @@ function getHtml(webview, context, styleUri) {
         <h2>Quale stile di codice preferisci?</h2>
         ${renderRadio('codeStyle', 'Quale stile di codice preferisci?', [
           { value: 'commented::Molto commentato', label: 'Molto commentato' },
-          { value: 'clean::Pulito - nomi descrittivi e struttura ordinata, pochi commenti', label: 'Pulito' },
-          { value: 'concise::Conciso - codice compatto', label: 'Conciso' },
-          { value: 'documented::Documentato - uso di docstrings, JSDoc o simili per chiarezza', label: 'Ben documentato con JSDoc/docstrings' }
+          { value: 'clean::Pulito, nomi descrittivi e struttura ordinata, pochi commenti', label: 'Pulito' },
+          { value: 'concise::Conciso, codice compatto', label: 'Conciso' },
+          { value: 'documented::Documentato, uso di docstrings, JSDoc o simili per chiarezza', label: 'Ben documentato con JSDoc/docstrings' }
         ])}
         </div>
         
@@ -118,19 +125,19 @@ function getHtml(webview, context, styleUri) {
         <h2>Qual è il tuo livello di conoscenza dei pattern architetturali?</h2>
         ${renderRadio('architectureKnowledge', 'Qual è il tuo livello di conoscenza dei pattern architetturali?', [
           { value: 'basic::Base', label: 'Base (MVC, singleton)' },
-          { value: 'intermediate::Intermedio - usa Repository, Factory, Observer', label: 'Intermedio (repository, factory, observer)' },
-          { value: 'advanced::Avanzato - implementa CQRS, microservizi', label: 'Avanzato (CQRS, event sourcing, microservizi)' },
-          { value: 'expert::Esperto - architetture complesse e distribuite', label: 'Esperto (architetture complesse e personalizzate)' }
+          { value: 'intermediate::Intermedio, usa Repository, Factory, Observer', label: 'Intermedio (repository, factory, observer)' },
+          { value: 'advanced::Avanzato, implementa CQRS, microservizi', label: 'Avanzato (CQRS, event sourcing, microservizi)' },
+          { value: 'expert::Esperto, architetture complesse e distribuite', label: 'Esperto (architetture complesse e personalizzate)' }
         ])}
         </div>
   
         <div class="section">
         <h2>Come preferisci imparare nuovi concetti di programmazione?</h2>
         ${renderRadio('learningPreference', 'Come preferisci imparare nuovi concetti di programmazione?', [
-          { value: 'examples::Esempi - apprende meglio con codice pratico', label: 'Attraverso esempi pratici' },
-          { value: 'documentation::Documentazione - preferisce leggere riferimenti e API', label: 'Leggendo documentazione dettagliata' },
-          { value: 'tutorials::Tutorial - segue guide passo-passo', label: 'Seguendo tutorial passo-passo' },
-          { value: 'exploration::Esplorazione - impara sperimentando liberamente', label: 'Esplorando e sperimentando autonomamente' }
+          { value: 'examples::Esempi, apprende meglio con codice pratico', label: 'Attraverso esempi pratici' },
+          { value: 'documentation::Documentazione, preferisce leggere riferimenti e API', label: 'Leggendo documentazione dettagliata' },
+          { value: 'tutorials::Tutorial, segue guide passo-passo', label: 'Seguendo tutorial passo-passo' },
+          { value: 'exploration::Esplorazione, impara sperimentando liberamente', label: 'Esplorando e sperimentando autonomamente' }
         ])}
         </div>
   
@@ -236,25 +243,14 @@ async function saveAnswer(context, id, question, answer) {
 export async function getToMProfile(context) {
     const userProfile = await context.globalState.get('tomProfile');
     //Trasformare userProfile in un oggetto JSON
-    console.log("Profilo utente trovato: " + JSON.stringify(userProfile, null, 2));
+    //console.log("Profilo utente trovato: " + JSON.stringify(userProfile));
 
-    if (!userProfile || userProfile.length === 0) {
-      vscode.window.showWarningMessage('Profilo utente non trovato. Esegui prima il quiz per configurare il tuo profilo.');
+    if ((!userProfile || userProfile.length === 0) || userProfile.length < 7) {
+      vscode.window.showWarningMessage('Profilo utente non trovato oppure incompleto.\n Esegui prima il quiz per configurare o completare il tuo profilo.');
       return;
     }
-  
-    if (userProfile.length < 7) {
-      vscode.window.showWarningMessage('Profilo utente incompleto. Esegui nuovamente il quiz per completare il tuo profilo.');
-      return;
-    }
-  
-    const getAnswer = (index) => {
-      const answer = userProfile[index]?.answer;
-      if (!answer) return "Non specificato";
-  
-      return Array.isArray(answer) ? answer.join(", ") : answer;
-    };
-
+    
+    // Crea una mappa per accedere facilmente alle risposte
     const profileMap = new Map();
     userProfile.forEach(entry => {
       profileMap.set(entry.id, entry.answer);
@@ -275,7 +271,7 @@ export async function getToMProfile(context) {
       return Array.isArray(answer) ? answer.join(", ") : answer;
     }
   
-    console.log("STAMPO PROFILO " + userProfileString);
+    //console.log("STAMPO PROFILO " + userProfileString);
     return userProfileString;
   }
   

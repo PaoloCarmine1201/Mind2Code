@@ -38,20 +38,22 @@ function shouldContinue(state) {
 // Nodes
 async function llmCall(state) {
 	if (state.terminate === true || state.is_requirement === false) {
-        //console.log("📝 Flusso terminato in llmCall");
         return state; // Ritorna lo stato senza modifiche
     }
 
     const repo_context = state.repo_context || "";
+    const user_mental_state = state.user_mental_state || "";
+    
 	// LLM decides whether to call a tool or not
-	const result = await llm_with_tools.invoke([ //devo cambiare con llm_with_tools
-	  {
-		role: "system",
-		content: MEDIUM_SYSTEM_PROMPT.replace("{input}", state.input)
-    + (repo_context ? `\n\nRepository Context:\n${repo_context}` : "")
-	  },
-	  ...state.messages
-	]);
+	const result = await llm_with_tools.invoke([{
+    role: "system",
+    content: MEDIUM_SYSTEM_PROMPT
+      .replace("{input}", state.input)
+      .replace("{user_mental_state}", user_mental_state || "") // oppure state.mental_state
+      + (repo_context ? `\n\nRepository Context:\n${repo_context}` : "")
+  },
+  ...state.messages
+]);
 
 	//console.log("🤖 Messaggio LLM:", JSON.stringify(result, null, 2), "fine messaggio LLM");
   
@@ -66,40 +68,45 @@ async function updatedState(state) {
     const messages = state.messages;
     const lastMessage = messages.at(-1);
 
-    //console.log("Vedo il content di last message", lastMessage.content);
-
     // Se l'ultimo messaggio è una risposta di un tool
     if (lastMessage && (lastMessage.role === 'tool' || lastMessage.constructor.name === 'ToolMessage')) {
-        //console.log("📝 Risposta del tool ricevuta:", lastMessage.content);
         
         // Controlla quale tool ha risposto in base al nome
         if (lastMessage.name === 'is_requirement') {
-			let content = lastMessage.content;
-			if (typeof content === "string") {
-				try {
-				content = JSON.parse(content);
-				} catch (e) {
-				// Non è un JSON valido, lascialo così
-				}
-			}
+          let content = lastMessage.content;
+          if (typeof content === "string") {
+            try {
+            content = JSON.parse(content);
+            } catch (e) {
+            // Non è un JSON valido, lascialo così
+            }
+          }
 
-			if (typeof content === "object" && content !== null) {
-				if (content.requirement === false || content.requirement === "false") {
-				return {
-					...state,
-					is_requirement: false,
-					confidence: content.confidence,
-					terminate: true
-				};
-				} else {
-				return {
-					...state,
-					is_requirement: content.requirement === true || content.requirement === "true",
-					confidence: content.confidence
-				};
-				}
-			}
-		}
+          if (typeof content === "object" && content !== null) {
+            if (content.requirement === false || content.requirement === "false") {
+            return {
+              ...state,
+              is_requirement: false,
+              confidence: content.confidence,
+              terminate: true
+            };
+            } else {
+            return {
+              ...state,
+              is_requirement: content.requirement === true || content.requirement === "true",
+              confidence: content.confidence
+            };
+            }
+          }
+		    }
+
+    if (lastMessage.name === 'refine_requirement' && state.refined_requirement === undefined) {
+      return {
+              ...state,
+              refined_requirement: lastMessage.content,
+              input: lastMessage.content
+            };
+    }
 
 		if (lastMessage.name === 'classify_language' && state.language === undefined) {
       let content = lastMessage.content;
@@ -111,7 +118,6 @@ async function updatedState(state) {
         }
       }
       if (typeof content === "object" && content !== null) {
-            //console.log("📝 Sono nell'if di classify:", lastMessage.content);
             return {
                ...state,
                 language: content.language,
@@ -120,11 +126,9 @@ async function updatedState(state) {
         }
     }
         if (lastMessage.name === 'generate_code' && state.generated_code === undefined) {
-            //console.log("📝 Sono nell'if di generate:", lastMessage.content);
             return {
               ...state,
                 generated_code: lastMessage.content,
-				//terminate : true
             };
         }
 
@@ -138,7 +142,6 @@ async function updatedState(state) {
             }
           }
         if (typeof content === "object" && content !== null) {
-            //console.log("📝 Nome file estratto:", lastMessage.content);
             return {
                 ...state,
                 filename: content.filename,
@@ -147,7 +150,6 @@ async function updatedState(state) {
         }
       }
         if (lastMessage.name === 'save_code') {
-            //console.log("📝 Codice salvato:", lastMessage.content);
             return {
                 ...state,
                 terminate: true,
@@ -222,6 +224,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   let codeSaved = false;
   let generatedCode = undefined;
   let toolConfidence = 0.0;
+  let refinedRequirement = undefined;
   let msg = null;
   const printedMessages = new Set();
   
@@ -237,12 +240,11 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   
   try {
     // Utilizziamo gli input iniziali o null per continuare la conversazione
-    for await (const { messages, repo_context, is_requirement, language, generated_code, filename, code_saved, tool_confidence } of await agentBuilder.stream(initialInputs, streamConfig)) {
+    for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence } of await agentBuilder.stream(initialInputs, streamConfig)) {
       msg = messages?.[messages.length - 1];
 
       if (tool_confidence !== undefined) {
         toolConfidence = tool_confidence;
-        //console.log("📝 Confidence del tool:", toolConfidence);
       }
       
       // Aggiorna lo stato is_requirement
@@ -282,8 +284,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
           if (keys.length === 1) {
             toPrint = toPrint[keys[0]];
           } else {
-            // Se ci sono più campi oltre a confidence, puoi scegliere come gestirli
-            // Ad esempio, puoi creare un nuovo oggetto senza confidence
+            // Se ci sono più campi oltre a confidence, creo un nuovo oggetto senza 'confidence'
             const { confidence, ...rest } = toPrint;
             toPrint = rest;
           }
@@ -292,18 +293,18 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         // Verifica se il messaggio è una risposta di un tool
         if (msg.role === 'tool' || msg.constructor.name === 'ToolMessage') {
           // Invia il messaggio come tool_output
-          if (!printedMessages.has(toPrint)) {
-            if (typeof toPrint === "object" && toPrint!== null) {
-              toPrint = JSON.stringify(toPrint);
-            }
-            webview.postMessage({ command: 'tool_output', text: ""+toPrint, toolName: msg.name });
-            printedMessages.add(toPrint);
-          }
+          // Usa una chiave univoca per evitare duplicati
+            const toolKey = `${msg.name}:${JSON.stringify(toPrint)}`;
+            if (!printedMessages.has(toolKey)) {
+              if (typeof toPrint === "object" && toPrint!== null) {
+                toPrint = JSON.stringify(toPrint);
+              }
+                webview.postMessage({ command: 'tool_output', text: ""+toPrint, toolName: msg.name });
+                printedMessages.add(toolKey);
+              }
         } else {
           // Aggiungi il messaggio formattato al set e invialo alla webview solo se non è già stato stampato
           if (!printedMessages.has(toPrint)) {
-            //console.log("📝 Messaggio LLM:", toPrint);
-            //Controllo che toPrint sia un oggetto JSON
             if (typeof toPrint === "object" && toPrint!== null) {
               toPrint = JSON.stringify(toPrint);
             }
@@ -315,18 +316,17 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
       // Gestione del codice generato
       if (generated_code !== undefined && !codeAlreadyPrinted && is_requirement === true) {
-        //console.log("STAMPO IL GENERATED CODE: " + generated_code);
         codeAlreadyPrinted = true;
         console.log("-----\n");
       }
 
       if (codeSaved === true) {
-        return { codeAlreadyPrinted: true, is_requirement: true, code_saved: true, tool_confidence: toolConfidence, message: msg };
+        return { codeAlreadyPrinted: true, is_requirement: true, code_saved: true, tool_confidence: toolConfidence, message: msg, refined_requirement: refinedRequirement };
       }
 
     }
     
-    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode };
+    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);
     return { codeAlreadyPrinted, is_requirement: isRequirement, error: true, tool_confidence: toolConfidence};

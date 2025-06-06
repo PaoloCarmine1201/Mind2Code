@@ -3,6 +3,7 @@ import * as vscode from 'vscode'
 import { agentBuilder, runAgentForExtention } from '../agente/agent.js';
 import { HumanMessage } from "@langchain/core/messages";
 import { getGithubContext, createGithubContext } from '../commands/githubContextCommand.js';
+import { getToMProfile, StartTomQuiz } from '../commands/TheoryOfMindCommand.js';
 
 export class ChatViewProvider {
   constructor(extensionUri, context) {
@@ -63,12 +64,30 @@ export class ChatViewProvider {
                 this.waitingForContinuation = false;
               }
             } else {
-              webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
+              webview.postMessage({ command: 'status', text: '⏳ Attendi: sto recuperando il profilo utente...' });
+
+              let user_mental_state = await getToMProfile(this.context);
+
+              // Se il profilo non esiste, invita l'utente a completare il quiz e attendi
+              if (!user_mental_state) {
+                vscode.window.showWarningMessage('Devi completare il profilo utente prima di usare la chat.');
+                await StartTomQuiz(this.context);
+
+                // Ciclo di attesa asincrono: controlla ogni secondo se il profilo è stato completato
+                while (!user_mental_state) {
+                  await new Promise(res => setTimeout(res, 1000));
+                  user_mental_state = await getToMProfile(this.context);
+                }
+                // (Opzionale) Rimuovi il messaggio di caricamento dalla chat qui, se vuoi
+                webview.postMessage({ command: 'status', text: '✅ Profilo utente caricato, puoi continuare!' });
+              }
+              console.log("Profilo utente caricato:", user_mental_state);
               const inputs = {
                 is_requirement: undefined,
                 messages: [new HumanMessage(message.text)],
                 input: message.text,
                 repo_context: JSON.stringify(repo_context),
+                user_mental_state: JSON.stringify(user_mental_state),
                 language: undefined,
                 generated_code: undefined,
                 filename: undefined,
@@ -99,6 +118,15 @@ export class ChatViewProvider {
       this._view.webview.postMessage({
         command: 'updateRepoContext',
         text: repoContext
+      });
+    }
+  }
+
+  sendToMProfileToChat(profile) {
+    if (this._view) {
+      this._view.webview.postMessage({
+        command: 'showToMProfile',
+        text: profile
       });
     }
   }
@@ -169,7 +197,6 @@ async function handleAgentResult(result, webview, continueCallback) {
   if (result.tool_confidence > 0.7 && msg?.tool_calls?.length > 0 && msg) {
     const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
     const toolMessage = `${toolName}`;
-    //webview.postMessage({ command: 'reply', text: toolMessage });
     webview.postMessage({
       command: 'reply',
       text: 'La tua richiesta è molto chiara, sono sicuro del prossimo passo da eseguire.\n' + 

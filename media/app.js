@@ -14,6 +14,8 @@ function appendMessage(sender, text, isLoading = false) {
         messageDiv.className = 'message user-message';
     } else if (sender === 'Tool') {
         messageDiv.className = 'message tool-message';
+    } else if (sender === 'InfoTomProfile'){
+        messageDiv.className = 'message info-tom-message';
     } else if (sender === 'InfoRepository') {
         messageDiv.className = 'message info-repo-message';
     } else {
@@ -29,6 +31,9 @@ function appendMessage(sender, text, isLoading = false) {
     } else if (sender === 'Tool') {
         headerDiv.className = 'tool-header';
         headerDiv.textContent = '🛠️ Tool';
+    } else if (sender === 'InfoTomProfile') {
+        headerDiv.className = 'info-tom-header';
+        headerDiv.textContent = '🧠 Profilo Utente';
     } else if (sender === 'InfoRepository') {
         headerDiv.className = 'info-repo-header';
         headerDiv.textContent = '📦 Contesto Repository';
@@ -91,6 +96,8 @@ function appendMessageWithoutSaving(sender, text) {
         messageDiv.className = 'message user-message';
     } else if (sender === 'Tool') {
         messageDiv.className = 'message tool-message';
+    } else if (sender === 'InfoTomProfile'){
+        messageDiv.className = 'message info-tom-message';
     } else if (sender === 'InfoRepository') {
         messageDiv.className = 'message info-repo-message';
     } else {
@@ -106,6 +113,9 @@ function appendMessageWithoutSaving(sender, text) {
     } else if (sender === 'Tool') {
         headerDiv.className = 'tool-header';
         headerDiv.textContent = '🛠️ Tool';
+    } else if (sender === 'InfoTomProfile') {
+        headerDiv.className = 'info-tom-header';
+        headerDiv.textContent = '🧠 Profilo Utente';
     } else if (sender === 'InfoRepository') {
         headerDiv.className = 'info-repo-header';
         headerDiv.textContent = '📦 Contesto Repository';
@@ -289,6 +299,49 @@ window.addEventListener('message', event => {
         appendMessage(sender, text);
     }
 
+    if (message.command === 'showToMProfile') {
+        removeLoadingMessages();
+        const profile = message.text;
+
+        const lines = profile
+            .split(/\n| - /)
+            .map(line => line.trim())
+            .filter(line => line.includes(':'));
+
+        let text = `
+            🧠 <strong>Profilo Utente</strong><br>
+            <ul style="margin-top:8px; padding-left: 1.2em;">
+        `;
+        lines.forEach(line => {
+            const colonIndex = line.indexOf(':');
+            if (colonIndex !== -1) {
+                let label = line.slice(0, colonIndex).trim();
+                let value = line.slice(colonIndex + 1).trim();
+
+                // Rimuovi eventuale trattino iniziale dalla label
+                if (label.startsWith('-')) {
+                    label = label.slice(1).trim();
+                }
+
+                // Prendi solo la parte prima di "::" se presente
+                const doubleColonIndex = value.indexOf('::');
+                if (doubleColonIndex !== -1) {
+                    value = value.slice(0, doubleColonIndex).trim();
+                }
+
+                if (label && value) {
+                    text += `<li><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</li>`;
+                }
+            }
+        });
+        text += '</ul>';
+
+        appendMessage('InfoTomProfile', text);
+    }
+
+
+
+
     if (message.command === 'askConfirmation') {
         appendMessage('Assistente', message.text);
         showConfirmationButtons(message.options);
@@ -328,17 +381,46 @@ window.addEventListener('message', event => {
             } else if (text.includes('false')) {
                 text = "<strong>Non sembra un requisito</strong>. Vuoi riprovare o chiedere altro?";
             }
+        appendMessage('Tool', text);
         } else if (toolName === 'classify_language') {
             text = `Ho individuato il linguaggio migliore per questo requisito: <strong>${text}</strong>. Procedo!`;
+            appendMessage('Tool', text);
         } else if (toolName === 'extract_filename') {
             text = `Ho scelto questo nome file per te: <strong>${text}</strong>. Passo alla generazione del codice!`;
+            appendMessage('Tool', text);
         } else if (toolName === 'generate_code') {
             console.log('Codice generato:', text);
             text = markdownToHtml(text);
+            appendMessage('Tool', text);
         } else if (toolName === 'save_code') {
             text = "Codice salvato con successo! Qui sulla tua destra puoi vedere il file generato.";
+            appendMessage('Tool', text);
+        } else if (toolName === 'refine_requirement') {
+            console.log("Sono entrato nel fantastico IF")
+            try {
+                // 1. Parsing del risultato JSON interno
+                const outer = JSON.parse(text); // ora outer.requirement è una stringa JSON
+                const parsed = JSON.parse(outer.requirement); // ora è un oggetto con user_story e criteria
+
+                // 2. Costruzione del messaggio markdown
+                let formatted = `🛠️ Ho formattato il requisito per te:\n\n`;
+                formatted += `**📌 User Story**\n`;
+                formatted += `- ${parsed.user_story}\n\n`;
+                formatted += `**✅ Acceptance Criteria**\n`;
+                parsed.acceptance_criteria.forEach((ac, index) => {
+                    formatted += `- ${ac}\n`;
+                });
+                formatted += `\n➡️ Procediamo con questa nuova user story.`;
+
+                // 3. Conversione markdown → HTML + append
+                const html = markdownToHtml(formatted);
+                appendMessage('Tool', html);
+
+            } catch (err) {
+                console.error("Errore nel parsing del requirement:", err);
+                appendMessage('Tool', "⚠️ Errore durante la formattazione del requisito.");
+            }
         }
-        appendMessage('Tool', text);
 
         } else if (message.command === 'clearChat') {
             // Comando per pulire la chat

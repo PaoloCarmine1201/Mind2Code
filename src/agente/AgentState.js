@@ -2,12 +2,14 @@
 import { Annotation } from "@langchain/langgraph";
 
 export const AgentState = Annotation.Root({
+    user_mental_state: Annotation(),
     input: Annotation(),
     messages: Annotation({
         reducer: (x,y) => x.concat(y),
     }),
     repo_context: Annotation(),
     is_requirement: Annotation(),
+    refined_requirement: Annotation(),
     language: Annotation(),
     generated_code: Annotation(),
     filename: Annotation(),

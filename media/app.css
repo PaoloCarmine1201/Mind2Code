@@ -39,6 +39,21 @@ body {
     font-size: 1.05em;
 }
 
+.info-tom-message {
+    background: #1e2a38;
+    color: #fff;
+    border-left: 4px solid #ffb347;
+    margin: 10px 0;
+    border-radius: 18px;
+    padding: 16px;
+}
+.info-tom-header {
+    font-weight: bold;
+    color: #ffb347;
+    font-size: 1.2em;
+    margin-bottom: 8px;
+}
+
 /* Area chat */
 .chat-container {
     flex: 1;

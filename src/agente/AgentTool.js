@@ -7,7 +7,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import * as vscode from 'vscode';
 
-//TODO: Change this tool to a now tool of requirement engineering
 //tool with confidence level of LLM
 const is_requirement = tool(async (input) => {
     console.log("IS REQUIREMENT TOOL");
@@ -39,6 +38,7 @@ const is_requirement = tool(async (input) => {
       if (typeof parsedResponse.requirement !== 'boolean') {
           throw new Error("Formato risposta non valido: 'requirement' dovrebbe essere un booleano");
       }
+      console.log("STAMPO CONFIDENCE IS_REQUIREMENT", input.confidence);
     return { 
       requirement: parsedResponse.requirement, 
       confidence: input.confidence // restituisce anche la confidence passata in input
@@ -56,6 +56,67 @@ const is_requirement = tool(async (input) => {
     })
 }
 )
+
+const refine_requirement = tool(async (input) => {
+  console.log("REFINE REQUIREMENT TOOL");
+  const response = await llm.invoke([
+    {
+      role: "system",
+      content: `You are an assistant specialized in agile software design.
+
+            Your task is to take a vague or unstructured user request and turn it into a structured **User Story** followed by precise and testable **Acceptance Criteria**.
+
+            Please follow this format:
+
+            **User Story:**
+            - [As a ..., I want to ..., so that ...]
+
+            **Acceptance Criteria:**
+            - [AC #1: clear, testable behavior]
+            - [AC #2: ...]
+            - [AC #n: ...]
+
+            Use the GitHub repository context and user profile to tailor the language, technology assumptions, and level of detail.
+
+            Only return a JSON object with the following structure:
+            {
+              "user_story": "The user story text here",
+              "acceptance_criteria": [
+                "Acceptance criterion 1",
+                "Acceptance criterion 2",
+                "Acceptance criterion n"
+              ]
+            }
+
+            ---
+
+            **User Request:**
+            ${input.requirement}
+
+            **GitHub Context:**
+            ${input.github_context}
+
+            **User Profile:**
+            ${input.user_profile}
+
+      Reply with ONLY the refined requirement, without any comments or additional explanation.`
+    }
+  ]);
+  // Pulisci la risposta da eventuali caratteri non desiderati
+  let refinedRequirement = response.content.trim();
+  // Assicurati che la risposta sia in un formato leggibile
+  return {
+    requirement: refinedRequirement,
+  };
+}, {
+  name: 'refine_requirement',
+  description: 'Call to refine a software requirement to make it clearer and more actionable.',
+  schema: z.object({
+    requirement: z.string().describe("The input requirement to refine."),
+    github_context: z.string().describe("The GitHub repository context to provide context for refinement requirement."),
+    user_profile: z.string().describe("The user profile to tailor the refinement."),
+  })
+})
 
 //create a tool that classify language of the requirement
 //tool with confidence level of LLM
@@ -91,6 +152,7 @@ const classify_language = tool(async (input) => {
   
   // Verifica che sia un linguaggio valido
   const validLanguages = ["python", "javascript", "java", "cpp", "go", "typescript", "ruby", "php", "csharp", "c"];
+  console.log("STAMPO CONFIDENCE CLASSIFY ", input.confidence);
   
   if (validLanguages.includes(language)) {
       return {language : language,
@@ -153,6 +215,9 @@ const extract_filename = tool(async (input) => {
   } else if (input.language === "cpp" && !filename.endsWith(".cpp")) {
       filename = filename.replace(/\.\w+$/, "") + ".cpp";
   }
+
+  console.log("STAMPO CONFIDENCE EXTRACT_FILENAME", input.confidence);
+
   
   return {
     filename: filename,
@@ -282,5 +347,5 @@ async function saveCodeToFile(filename, code, webview = null) {
   }
 }
 
-export const tools = [is_requirement, classify_language, generate_code, extract_filename, save_code];
+export const tools = [is_requirement, refine_requirement, classify_language, generate_code, extract_filename, save_code];
 export const toolNode = new ToolNode(tools);

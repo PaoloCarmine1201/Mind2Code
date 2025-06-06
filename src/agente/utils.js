@@ -51,13 +51,13 @@ If a tool does not have a "confidence" parameter, do not include it in the call.
 - **refine_requirement(requirement: str, github_context: str, user_profile: str)**  
   Refines the input into a clear, actionable requirement
 
-- **classify_language(requirement: str, confidence: float)**  
+- **classify_language(requirement: str, confidence: float, , user_profile: str, github_context: str)**  
   Determines the language best suited for the requirement
 
-- **extract_filename(requirement: str, language: str, confidence: float)**  
+- **extract_filename(requirement: str, language: str, confidence: float, github_context:str)**  
   Suggests a filename based on the requirement and language
 
-- **generate_code(requirement: str, language: str)**  
+- **generate_code(requirement: str, language: str, user_profile: str)**  
   Generates code based on the refined requirement
 
 - **save_code(generated_code: str, filename: str)**  

@@ -29,16 +29,12 @@ const is_requirement = tool(async (input) => {
       }
     ]);
 
-    //console.log("🤖 Risposta LLM:", response, "fine risposta LLM");
-
     try {
       const parsedResponse = JSON.parse(response.content);
-      //console.log("Risposta analizzata:", parsedResponse);
       
       if (typeof parsedResponse.requirement !== 'boolean') {
           throw new Error("Formato risposta non valido: 'requirement' dovrebbe essere un booleano");
       }
-      console.log("STAMPO CONFIDENCE IS_REQUIREMENT", input.confidence);
     return { 
       requirement: parsedResponse.requirement, 
       confidence: input.confidence // restituisce anche la confidence passata in input
@@ -133,17 +129,20 @@ const classify_language = tool(async (input) => {
 		FOLLOW THIS PRIORITY ORDER WHEN DETERMINING THE LANGUAGE:
 		1. FIRST, analyze the input requirement for explicit language mentions
 		2. If no language is specified in the input, check the GitHub repository context
-		3. If no clear indication from repository context, default to Python
+    3. If no clear indication from repository context, consider the user's profile and preferences
+    4. If no clear indication from repository context, default to Python
 
 		Analyze the requirement and determine the programming language to use based on this strict priority:
 		1. Explicit mentions of languages in the requirement (HIGHEST PRIORITY)
 		2. The GitHub repository context provided in the system prompt (MEDIUM PRIORITY)
-		3. Default to Python if no other information is available (LOWEST PRIORITY)
+		3. The user's profile and preferences (MEDIUM PRIORITY)
+    4. Default to Python if no other information is available (LOWEST PRIORITY)
 
 		Respond ONLY with the language name in lowercase (e.g., "python", "javascript", "java", "cpp", etc.).
 
 		Requirement to analyze: "${input.requirement}"
-		GitHub repository context: "${input.context}"`
+		GitHub repository context: "${input.github_context}"
+    User profile: "${input.user_profile}"`
     }
   ]);
 
@@ -152,7 +151,6 @@ const classify_language = tool(async (input) => {
   
   // Verifica che sia un linguaggio valido
   const validLanguages = ["python", "javascript", "java", "cpp", "go", "typescript", "ruby", "php", "csharp", "c"];
-  console.log("STAMPO CONFIDENCE CLASSIFY ", input.confidence);
   
   if (validLanguages.includes(language)) {
       return {language : language,
@@ -176,8 +174,9 @@ const classify_language = tool(async (input) => {
   description: 'Call to classify the language of the requirement.',
   schema: z.object({
     requirement: z.string().describe("The requirement text to analyze for language information."),
-    context: z.string().describe("The GitHub repository context to provide context for language classification."),
-    confidence: z.number().optional().describe("Confidence level for the language classification, between 0 and 1.")
+    github_context: z.string().describe("The GitHub repository context to provide context for language classification."),
+    confidence: z.number().optional().describe("Confidence level for the language classification, between 0 and 1."),
+    user_profile: z.string().optional().describe("The user profile to tailor the language classification.")
   })
 })
 
@@ -195,6 +194,8 @@ const extract_filename = tool(async (input) => {
 		1. Reflects the main described functionality
 		2. Follows naming conventions for the ${input.language} language
 		3. Includes the correct file extension for the language
+    4. Respects any naming conventions or patterns found in the following GitHub repository context:
+${input.github_context}
 		
 		Requirement to analyze: "${input.requirement}"
 		
@@ -215,9 +216,6 @@ const extract_filename = tool(async (input) => {
   } else if (input.language === "cpp" && !filename.endsWith(".cpp")) {
       filename = filename.replace(/\.\w+$/, "") + ".cpp";
   }
-
-  console.log("STAMPO CONFIDENCE EXTRACT_FILENAME", input.confidence);
-
   
   return {
     filename: filename,
@@ -229,19 +227,28 @@ const extract_filename = tool(async (input) => {
   schema: z.object({
     requirement: z.string().describe("Il requisito da cui estrarre il nome del file."),
     language: z.string().describe("Il linguaggio di programmazione per determinare l'estensione corretta."),
-    confidence: z.number().optional().describe("Confidence level for the filename extraction, between 0 and 1.")
+    confidence: z.number().optional().describe("Confidence level for the filename extraction, between 0 and 1."),
+    github_context: z.string().describe("Il contesto del repository GitHub per fornire informazioni aggiuntive.")
   })
 })
 
 //create a tool that generate code from the requirement
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
+
     const response = await llm.invoke([
       {
         role: "system",
         content: `You are a code generator that generates code from a given requirement.
 			The code should be written in the ${input.language} programming language.
 			Input to analyze: "${input.requirement}".
+
+      **IMPORTANT:** Carefully consider the following user profile when generating the code. 
+      Adapt the code style, complexity, comments, and structure to match the user's preferences and experience level.
+
+      USER PROFILE:
+      ${input.user_profile}
+
 			The final output must be a **single block of code enclose it between triple backticks**, such as:
 			\`\`\`
 			def hello_world():
@@ -254,7 +261,6 @@ const generate_code = tool(async (input) => {
       }
     ])
 
-    //console.log("🤖 Risposta codice generato LLM:", response, "fine risposta LLM");
     return response.content;
 }, {
     name: 'generate_code',
@@ -262,6 +268,7 @@ const generate_code = tool(async (input) => {
     schema: z.object({
       requirement: z.string().describe("The requirement text to generate code from."),
       language: z.string().describe("The programming language to generate code in."),
+      user_profile: z.string().describe("The user profile to tailor the code generation."),
     })
 }
 

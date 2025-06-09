@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { tool } from '@langchain/core/tools';
-import { z } from 'zod';
+import { date, z } from 'zod';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { llm } from './agentModel.js';
 import { promises as fs } from 'fs';
@@ -10,39 +10,38 @@ import * as vscode from 'vscode';
 //tool with confidence level of LLM
 const is_requirement = tool(async (input) => {
     console.log("IS REQUIREMENT TOOL");
-    
-    const response = await llm.invoke([
+
+    const response = await llm
+    .withStructuredOutput(
+      z.object({
+        requirement: z.boolean().describe("True if the input is a requirement, false otherwise")
+      }),
+      { strict: true }
+    )
+    .invoke([
       {
         role: "system",
-        content: `You are a classifier that determines whether a given input is a software requirement.
-    
-			Reply ONLY with a JSON object in the format:
-			{ "requirement": true } if the input describes a software feature or behavior
-			{ "requirement": false } otherwise
-			
-			Software requirements typically:
-			- Describe what a system should do
-			- Specify features or behaviors
-			- May be formal or informal
-			
-			Input to analyze: "${input.requirement}"`
+        content: `
+          You are a classifier that determines whether a given input is a software requirement.
+
+          Return a JSON object in the format:
+          { "requirement": true } if the input describes a software feature or behavior,
+          { "requirement": false } otherwise.
+
+          Software requirements typically:
+          - Describe what a system should do
+          - Specify features or behaviors
+          - May be formal or informal
+
+          Input to analyze: "${input.requirement}"
+          `
       }
     ]);
 
-    try {
-      const parsedResponse = JSON.parse(response.content);
-      
-      if (typeof parsedResponse.requirement !== 'boolean') {
-          throw new Error("Formato risposta non valido: 'requirement' dovrebbe essere un booleano");
-      }
     return { 
-      requirement: parsedResponse.requirement, 
+      requirement: response.requirement, 
       confidence: input.confidence // restituisce anche la confidence passata in input
     };
-    } catch (error) {
-        console.error("Errore nell'analisi della risposta:", error);
-        throw new Error("Formato risposta non valido dal modello LLM");
-    }
 }, {
     name: 'is_requirement',
     description: 'Call to check if the input is a requirement or a feature.',
@@ -55,54 +54,59 @@ const is_requirement = tool(async (input) => {
 
 const refine_requirement = tool(async (input) => {
   console.log("REFINE REQUIREMENT TOOL");
-  const response = await llm.invoke([
-    {
-      role: "system",
-      content: `You are an assistant specialized in agile software design.
+  const response = await llm
+    .withStructuredOutput(
+      z.object({
+            user_story: z.string().describe("User story in the format 'As a ..., I want to ..., so that ...'"),
+            acceptance_criteria: z.array(z.string()).describe("Testable acceptance criteria")      }),
+      { strict: true }
+    )
+    .invoke([
+      {
+        role: "system",
+        content: `You are an assistant specialized in agile software design.
 
-            Your task is to take a vague or unstructured user request and turn it into a structured **User Story** followed by precise and testable **Acceptance Criteria**.
+        Your task is to take a vague or unstructured user request and turn it into a structured **User Story** followed by precise and testable **Acceptance Criteria**.
 
-            Please follow this format:
+        Return only a JSON object with:
+        {
+          "user_story": "...",
+          "acceptance_criteria": ["...", "..."]
+        }
 
-            **User Story:**
-            - [As a ..., I want to ..., so that ...]
+        Follow this format inside the user_story field:
 
-            **Acceptance Criteria:**
-            - [AC #1: clear, testable behavior]
-            - [AC #2: ...]
-            - [AC #n: ...]
+        **User Story:**
+        - As a [role], I want to [goal], so that [benefit].
 
-            Use the GitHub repository context and user profile to tailor the language, technology assumptions, and level of detail.
+        Follow this format inside the acceptance_criteria field:
 
-            Only return a JSON object with the following structure:
-            {
-              "user_story": "The user story text here",
-              "acceptance_criteria": [
-                "Acceptance criterion 1",
-                "Acceptance criterion 2",
-                "Acceptance criterion n"
-              ]
-            }
+        **Acceptance Criteria:**
+        - AC #1: ...
+        - AC #2: ...
+        - AC #n: ...
+        
+        **IMPORTANT**
+        Adapt the tone and structure using the GitHub repository context and user profile.
 
-            ---
+        Only return a JSON object — no extra explanation or comments.
 
-            **User Request:**
-            ${input.requirement}
+        ---
 
-            **GitHub Context:**
-            ${input.github_context}
+        **User Request:**
+        ${input.requirement}
 
-            **User Profile:**
-            ${input.user_profile}
+        **GitHub Context:**
+        ${input.github_context}
 
-      Reply with ONLY the refined requirement, without any comments or additional explanation.`
-    }
-  ]);
-  // Pulisci la risposta da eventuali caratteri non desiderati
-  let refinedRequirement = response.content.trim();
-  // Assicurati che la risposta sia in un formato leggibile
+        **User Profile:**
+        ${input.user_profile}
+        `
+      }
+    ]);    
+    // Trasforma l'output strutturato in una stringa JSON con escaping
   return {
-    requirement: refinedRequirement,
+    requirement: JSON.stringify(response, null, 2)
   };
 }, {
   name: 'refine_requirement',
@@ -121,24 +125,22 @@ const classify_language = tool(async (input) => {
 
   // Utilizziamo il modello LLM per determinare il linguaggio basandosi sul requisito
   // e sul contesto GitHub che è già stato fornito nel prompt di sistema
-  const response = await llm.invoke([
+  const response = await llm.withStructuredOutput(
+    z.object({
+      language: z.string().describe("The programming language identified from the requirement.")
+    }),
+    { strict: true }
+  ).invoke([
     {
       role: "system",
       content: `You are an assistant that determines the most appropriate programming language to implement a software requirement.
 
-		FOLLOW THIS PRIORITY ORDER WHEN DETERMINING THE LANGUAGE:
-		1. FIRST, analyze the input requirement for explicit language mentions
-		2. If no language is specified in the input, check the GitHub repository context
-    3. If no clear indication from repository context, consider the user's profile and preferences
-    4. If no clear indication from repository context, default to Python
+        **FOLLOW THIS PRIORITY ORDER**:
+        1. FIRST, analyze the input requirement for explicit language mentions
+        2. SECOND, If no language is specified, check the GitHub repository context
+        3. THIRD, Then check the user's profile
 
-		Analyze the requirement and determine the programming language to use based on this strict priority:
-		1. Explicit mentions of languages in the requirement (HIGHEST PRIORITY)
-		2. The GitHub repository context provided in the system prompt (MEDIUM PRIORITY)
-		3. The user's profile and preferences (MEDIUM PRIORITY)
-    4. Default to Python if no other information is available (LOWEST PRIORITY)
-
-		Respond ONLY with the language name in lowercase (e.g., "python", "javascript", "java", "cpp", etc.).
+        Respond ONLY with a JSON object like: { "language": "..." }
 
 		Requirement to analyze: "${input.requirement}"
 		GitHub repository context: "${input.github_context}"
@@ -147,28 +149,29 @@ const classify_language = tool(async (input) => {
   ]);
 
   // Estrai e pulisci la risposta
-  const language = response.content.trim().toLowerCase();
+  const language = response.language.trim().toLowerCase();
   
   // Verifica che sia un linguaggio valido
-  const validLanguages = ["python", "javascript", "java", "cpp", "go", "typescript", "ruby", "php", "csharp", "c"];
-  
-  if (validLanguages.includes(language)) {
-      return {language : language,
-        confidence: input.confidence // restituisce anche la confidence passata in input
-      };
-  }
-  
-  // Se il linguaggio non è riconosciuto, cerca di mapparlo a uno valido
-  if (language.includes("js")) return "javascript";
-  if (language.includes("ts")) return "typescript";
-  if (language.includes("c#")) return "csharp";
-  if (language.includes("c++")) return "cpp";
-  
-  // Default a python se non riconosciuto
+  const validLanguages = [
+    "python", "javascript", "java", "cpp", "go",
+    "typescript", "ruby", "php", "csharp", "c"
+  ];
+
+  const normalized = (() => {
+    if (validLanguages.includes(language)) return language;
+    if (language.includes("js")) return "javascript";
+    if (language.includes("ts")) return "typescript";
+    if (language.includes("c#")) return "csharp";
+    if (language.includes("c++")) return "cpp";
+    return "python";
+  })();
+
+  console.log("Linguaggio classificato:", normalized);
+
   return {
-    language: "python", 
-    confidence: input.confidence
-  };
+    language: normalized,
+    confidence: input.confidence // restituisce anche la confidence passata in input
+  }
 }, {
   name: 'classify_language',
   description: 'Call to classify the language of the requirement.',
@@ -185,7 +188,12 @@ const classify_language = tool(async (input) => {
 const extract_filename = tool(async (input) => {
   console.log("EXTRACT FILENAME TOOL");
   
-  const response = await llm.invoke([
+  const response = await llm.withStructuredOutput(
+    z.object({
+      filename: z.string().describe("The suggested filename with extension extracted from the requirement.")
+    }),
+    { strict: true }
+    ).invoke([
     {
       role: "system",
       content: `You are an assistant that extracts an appropriate filename from a software requirement.
@@ -195,16 +203,17 @@ const extract_filename = tool(async (input) => {
 		2. Follows naming conventions for the ${input.language} language
 		3. Includes the correct file extension for the language
     4. Respects any naming conventions or patterns found in the following GitHub repository context:
-${input.github_context}
+    ${input.github_context}
 		
 		Requirement to analyze: "${input.requirement}"
 		
-		Reply with ONLY the suggested filename, without any comments or additional explanation.`
+		Return ONLY a JSON object like: { "filename": "..." }
+    No comments, no explanations.`
       }
   ]);
-  
+
   // Pulisci la risposta da eventuali caratteri non desiderati
-  let filename = response.content.trim();
+  let filename = response.filename.trim();
   
   // Assicurati che il nome del file abbia l'estensione corretta
   if (input.language === "python" && !filename.endsWith(".py")) {
@@ -216,7 +225,7 @@ ${input.github_context}
   } else if (input.language === "cpp" && !filename.endsWith(".cpp")) {
       filename = filename.replace(/\.\w+$/, "") + ".cpp";
   }
-  
+
   return {
     filename: filename,
     confidence: input.confidence // restituisce anche la confidence passata in input
@@ -236,7 +245,12 @@ ${input.github_context}
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
 
-    const response = await llm.invoke([
+    const response = await llm.withStructuredOutput(
+      z.object({
+        code_block: z.string().describe("The generated code block, enclosed between triple backticks (```)")
+      }),
+      { strict: true }
+    ).invoke([
       {
         role: "system",
         content: `You are a code generator that generates code from a given requirement.
@@ -249,19 +263,15 @@ const generate_code = tool(async (input) => {
       USER PROFILE:
       ${input.user_profile}
 
-			The final output must be a **single block of code enclose it between triple backticks**, such as:
-			\`\`\`
-			def hello_world():
-				print("Hello, world!")
-			\`\`\`
+			Return a JSON object with the following field:
+      - code_block: a string containing the code, enclosed between triple backticks (e.g., \`\`\`print("Hello")\\n\`\`\`)
 
-			**Important rules**:
-			- Follow the requirement precisely, using your tools effectively to reach the goal.
-			`
+      Do not return anything else. Follow the requirement exactly.
+        `
       }
-    ])
+    ]);
 
-    return response.content;
+    return response.code_block;
 }, {
     name: 'generate_code',
     description: 'Call to generate code from the requirement.',

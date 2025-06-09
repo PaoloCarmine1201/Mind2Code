@@ -81,7 +81,7 @@ export class ChatViewProvider {
                 // (Opzionale) Rimuovi il messaggio di caricamento dalla chat qui, se vuoi
                 webview.postMessage({ command: 'status', text: '✅ Profilo utente caricato, puoi continuare!' });
               }
-              console.log("Profilo utente caricato:", user_mental_state);
+              console.log("Profilo utente caricato ok:");
               const inputs = {
                 is_requirement: undefined,
                 messages: [new HumanMessage(message.text)],

@@ -1,8 +1,8 @@
 {
   "type": "module",
-  "name": "openai-chat-agent",
-  "displayName": "openai-chat-agent",
-  "description": "Chat agent based on OpenAI API that generates code",
+  "name": "mind2code",
+  "displayName": "Mind2Code",
+  "description": "Chat agent Perspective-Taking for Personalized Code Generation",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.99.0"
@@ -15,51 +15,51 @@
   "contributes": {
     "commands": [
       {
-        "command": "openai-chat.clearChat",
+        "command": "Mind2Code.clearChat",
         "title": "Pulisci Chat",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       },
       {
-        "command": "openai-chat-agent.createGithubContext",
+        "command": "Mind2Code.createGithubContext",
         "title": "Create GitHub Context",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       },
       {
-        "command": "openai-chat-agent.getGithubContext",
+        "command": "Mind2Code.getGithubContext",
         "title": "Get GitHub Context",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       },
       {
-        "command": "openai-chat-agent.clearGithubContext",
+        "command": "Mind2Code.clearGithubContext",
         "title": "Clear GitHub Context",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       },
       {
-        "command": "openai-chat-agent.refreshExtension",
+        "command": "Mind2Code.refreshExtension",
         "title": "Refresh Extension",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       },
       {
-        "command": "openai-chat-agent.startToMProfileQuiz",
+        "command": "Mind2Code.startToMProfileQuiz",
         "title": "Start ToM Profile Quiz",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       },
       {
-        "command": "openai-chat-agent.getToMProfile",
+        "command": "Mind2Code.getToMProfile",
         "title": "Get ToM Profile",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       },
       {
-        "command": "openai-chat-agent.clearToMProfile",
+        "command": "Mind2Code.clearToMProfile",
         "title": "Clear ToM Profile",
-        "category": "OpenAI Chat"
+        "category": "Mind2Code"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "openai-chat.clearChat",
-          "when": "view == openaiChatView",
+          "command": "Mind2Code.clearChat",
+          "when": "view == Mind2CodeView",
           "group": "navigation"
         }
       ]
@@ -67,18 +67,18 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "openaiChatSidebar",
-          "title": "Chat Agent",
+          "id": "Mind2CodeSidebar",
+          "title": "Mind2Code",
           "icon": "media/web-programming.png"
         }
       ]
     },
     "views": {
-      "openaiChatSidebar": [
+      "Mind2CodeSidebar": [
         {
           "type": "webview",
-          "id": "openaiChatView",
-          "name": "Chat"
+          "id": "Mind2CodeView",
+          "name": "Chat with Agent"
         }
       ]
     }

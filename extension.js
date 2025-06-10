@@ -25,7 +25,7 @@ export function activate(context) {
 	const chatViewProvider = new ChatViewProvider(context.extensionUri, context);
 	// Registra il provider
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider('openaiChatView', chatViewProvider)
+		vscode.window.registerWebviewViewProvider('Mind2CodeView', chatViewProvider)
 	);
 
 	  // Pulisci la chat all'avvio dell'estensione
@@ -46,10 +46,10 @@ export function activate(context) {
 
 	const commands = [
 		{ 
-		  name: 'openai-chat.clearChat', callback: () => chatViewProvider.clearChat()
+		  name: 'Mind2Code.clearChat', callback: () => chatViewProvider.clearChat()
 		},
 		{ 
-		  name: 'openai-chat-agent.createGithubContext', 
+		  name: 'Mind2Code.createGithubContext', 
 		  callback: async () => {
 			const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			if (!workspaceFolder) {
@@ -64,7 +64,7 @@ export function activate(context) {
 		  } 
 		},
 		{
-		  name: 'openai-chat-agent.getGithubContext', 
+		  name: 'Mind2Code.getGithubContext', 
 		  callback: async () => {
 			const githubContext = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, context);
 			if (githubContext) {
@@ -75,7 +75,7 @@ export function activate(context) {
 		  }
 		},
 		{ 
-		  name: 'openai-chat-agent.clearGithubContext', 
+		  name: 'Mind2Code.clearGithubContext', 
 		  callback: async () => {
 			if (await clearGithubContext(context)){
 				vscode.window.showInformationMessage('Profilo della repository eliminato.');
@@ -85,7 +85,7 @@ export function activate(context) {
 		  } 
 		},
 		{ 
-			name: 'openai-chat-agent.refreshExtension', 
+			name: 'Mind2Code.refreshExtension', 
 			callback: async () => {
 			  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			  if (!workspaceFolder) {
@@ -132,13 +132,13 @@ export function activate(context) {
 			}
 		},
 		{
-			name: 'openai-chat-agent.startToMProfileQuiz',
+			name: 'Mind2Code.startToMProfileQuiz',
 			callback: () => {
 			  StartTomQuiz(context);
 			}
 		},
 		{
-			name: 'openai-chat-agent.getToMProfile',
+			name: 'Mind2Code.getToMProfile',
 			callback: async () => {
 			  const profile = await getToMProfile(context);
 			  if (profile) {
@@ -150,7 +150,7 @@ export function activate(context) {
 			}
 		},
 		{
-			name: 'openai-chat-agent.clearToMProfile',
+			name: 'Mind2Code.clearToMProfile',
 			callback: async () => {
 			  await clearToMProfile(context);
 			  vscode.window.showInformationMessage('Profilo ToM eliminato con successo.');

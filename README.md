@@ -1,4 +1,4 @@
-# Requirements Engineering and Code Generation AI Agent README
+# 🧠 **Mind2Code**: A Perspective-Taking Agent for Personalized Requirement Engineering and Code Generation 🔧
 
 This Master’s thesis project is a Visual Studio Code extension structured in two main phases.
 

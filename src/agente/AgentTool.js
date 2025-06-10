@@ -105,6 +105,7 @@ const refine_requirement = tool(async (input) => {
       }
     ]);    
     // Trasforma l'output strutturato in una stringa JSON con escaping
+
   return {
     requirement: JSON.stringify(response, null, 2)
   };
@@ -166,7 +167,6 @@ const classify_language = tool(async (input) => {
     return "python";
   })();
 
-  console.log("Linguaggio classificato:", normalized);
 
   return {
     language: normalized,
@@ -212,6 +212,7 @@ const extract_filename = tool(async (input) => {
       }
   ]);
 
+
   // Pulisci la risposta da eventuali caratteri non desiderati
   let filename = response.filename.trim();
   
@@ -244,34 +245,46 @@ const extract_filename = tool(async (input) => {
 //create a tool that generate code from the requirement
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
+    console.log("INPUT TO GENERATE CODE: ", JSON.stringify(input, null, 2));
+
 
     const response = await llm.withStructuredOutput(
       z.object({
-        code_block: z.string().describe("The generated code block, enclosed between triple backticks (```)")
+        code_block: z.string().describe("The generated code, without markdown or triple backticks.")
       }),
       { strict: true }
     ).invoke([
       {
         role: "system",
-        content: `You are a code generator that generates code from a given requirement.
-			The code should be written in the ${input.language} programming language.
-			Input to analyze: "${input.requirement}".
+        content: `
+                You are a code generator that generates code from a given requirement.
+                The code should be written in the ${input.language} programming language.
 
-      **IMPORTANT:** Carefully consider the following user profile when generating the code. 
-      Adapt the code style, complexity, comments, and structure to match the user's preferences and experience level.
+                Input to analyze: "${input.requirement}"
 
-      USER PROFILE:
-      ${input.user_profile}
+                IMPORTANT: Carefully consider the following user profile when generating the code. 
+                Adapt the code style, complexity, comments, and structure to match the user's preferences and experience level.
 
-			Return a JSON object with the following field:
-      - code_block: a string containing the code, enclosed between triple backticks (e.g., \`\`\`print("Hello")\\n\`\`\`)
+                USER PROFILE:
+                ${input.user_profile}
 
-      Do not return anything else. Follow the requirement exactly.
-        `
+                Return a JSON object with:
+                {
+                  "code_block": "The generated code ONLY, without triple backticks, without markdown, and with correct indentation"
+                }
+
+                Do NOT include:
+                - Any explanation
+                - Any language tags
+                - Any triple backticks
+                - Any comments outside the JSON
+                `
       }
     ]);
 
-    return response.code_block;
+    const formattedCode = `\`\`\`\n${response.code_block}\n\`\`\``;
+
+    return formattedCode;
 }, {
     name: 'generate_code',
     description: 'Call to generate code from the requirement.',

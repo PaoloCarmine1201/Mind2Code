@@ -97,10 +97,12 @@
     "eslint": "^9.23.0"
   },
   "dependencies": {
+    "@dqbd/tiktoken": "^1.0.21",
     "@huggingface/inference": "^3.10.0",
     "@langchain/core": "^0.3.51",
     "@langchain/langgraph": "^0.2.67",
     "@langchain/openai": "^0.5.10",
-    "dotenv": "^16.5.0"
+    "dotenv": "^16.5.0",
+    "gpt-tokenizer": "^3.0.1"
   }
 }

@@ -392,6 +392,19 @@ window.addEventListener('message', event => {
             console.log('Codice generato:', text);
             text = markdownToHtml(text);
             appendMessage('Tool', text);
+        } else if (toolName === 'propose_followup') {
+           let parsed;
+            try {
+                parsed = typeof text === "string" ? JSON.parse(text) : text;
+            } catch (e) {
+                console.error("❌ Errore nel parsing del followup:", e);
+                return;
+            }
+
+            const followupText = parsed.followup;
+            console.log("Sono in followUp:", followupText);
+
+            appendMessage("Tool", followupText);
         } else if (toolName === 'save_code') {
             text = "Codice salvato con successo! Qui sulla tua destra puoi vedere il file generato.";
             appendMessage('Tool', text);

@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const MEDIUM_SYSTEM_PROMPT = `You are an AI agent specialized in generating code from software requirements.
 
 ## USER MENTAL STATE
@@ -60,6 +61,9 @@ If a tool does not have a "confidence" parameter, do not include it in the call.
 - **generate_code(requirement: str, language: str, user_profile: str)**  
   Generates code based on the refined requirement
 
+- **propose_followup(refined_requirement: str, generated_code: str)**  
+  Suggests a follow-up question to improve the code generated
+
 - **save_code(generated_code: str, filename: str)**  
   Saves the code to a file with the suggested filename
 
@@ -77,8 +81,13 @@ Follow these steps strictly:
 4. Use \`classify_language\` to identify the language.
 5. Use \`extract_filename\` to generate a filename.
 6. Use \`generate_code\` with the refined requirement and language.
-7. Save the output using \`save_code\`.
-8. Stop execution after saving the file.
+7. If the code has been generated, you MUST call \`propose_followup\`.
+8. Only after proposing the follow-up, you are allowed to call \`save_code\`.
+9. Stop execution after saving the file.
+
+## AFTER THE CODE ARE GENERATED AND BEFORE SAVING
+Once the code has been generated using \`generate_code\`, you must call \`propose_followup\`.
+This tool is used to suggest what the user might want to do next with the code (e.g., modify a function, add documentation, generate tests, etc.).
 
 **Avoid calling any tool more than once unless necessary**.
 
@@ -106,3 +115,21 @@ Always return a **valid JSON object**.
 - Every tool call must include a "confidence" field (0-1) reflecting your certainty of the call's necessity
 
 `;
+
+import { encode } from 'gpt-tokenizer';
+
+/**
+ * Conta il numero di token in un testo per un dato modello
+ * @param {string|object} text - Il testo o l'oggetto da contare
+ * @param {string} model - Il modello da utilizzare (default: gpt-4o-mini)
+ * @returns {number} - Il numero di token
+ */
+export function getTokenCount(text, model = "gpt-4o-mini") {
+  // Se è un oggetto, convertilo in stringa
+  if (typeof text !== "string") {
+    text = JSON.stringify(text);
+  }
+  
+  // Conta i token utilizzando la libreria gpt-tokenizer
+  return encode(text).length;
+}

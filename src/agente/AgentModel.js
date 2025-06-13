@@ -1,5 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { tools } from "./agentTool.js";
+import { tools } from "./AgentTool.js"
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -12,16 +12,17 @@ const __dirname = path.dirname(__filename);
 // Carica il file .env dalla radice del progetto
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+// Aumentato il limite massimo di token da 1000 a 4000
 export const llm_with_tools = new ChatOpenAI({
     model: "gpt-4o-mini",
     openAIApiKey: process.env.OPENAI_API_KEY,
     temperature: 0,
-    maxTokens: 1000,
+    maxTokens: 4000,  // Aumentato il limite di token
   }).bindTools(tools);
   
 export const llm = new ChatOpenAI({
     model: "gpt-4o-mini",
     openAIApiKey: process.env.OPENAI_API_KEY,
     temperature: 0,
-    maxTokens: 1000,
+    maxTokens: 4000,  // Aumentato il limite di token
   })

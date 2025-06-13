@@ -2,7 +2,7 @@
 import { HumanMessage } from '@langchain/core/messages';
 import { MemorySaver, StateGraph } from "@langchain/langgraph";
 //import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { MEDIUM_SYSTEM_PROMPT } from './utils.js';
+import { MEDIUM_SYSTEM_PROMPT, getTokenCount } from './utils.js';
 import dotenv from 'dotenv';
 import { llm_with_tools } from './agentModel.js';
 import { AgentState } from './agentState.js';
@@ -37,31 +37,93 @@ function shouldContinue(state) {
 
 // Nodes
 async function llmCall(state) {
-	if (state.terminate === true || state.is_requirement === false) {
-        return state; // Ritorna lo stato senza modifiche
-    }
+  if (state.terminate === true || state.is_requirement === false) {
+    return state; // Ritorna lo stato senza modifiche
+  }
 
-    const repo_context = state.repo_context || "";
-    const user_mental_state = state.user_mental_state || "";
-    
-	// LLM decides whether to call a tool or not
-	const result = await llm_with_tools.invoke([{
-    role: "system",
-    content: MEDIUM_SYSTEM_PROMPT
-      .replace("{input}", state.input)
-      .replace("{user_mental_state}", user_mental_state || "") // oppure state.mental_state
-      + (repo_context ? `\n\nRepository Context:\n${repo_context}` : "")
-  },
-  ...state.messages
-]);
-
-	//console.log("🤖 Messaggio LLM:", JSON.stringify(result, null, 2), "fine messaggio LLM");
+  const repo_context = state.repo_context || "";
+  const user_mental_state = state.user_mental_state || "";
   
-	return {
-		...state,
-	  	messages: [...state.messages,result],
-      tool_confidence: result.tool_calls?.[0]?.args?.confidence || 0, // Aggiungi la confidence se disponibile
-	};
+  // Crea il prompt di sistema
+  const systemPrompt = MEDIUM_SYSTEM_PROMPT
+    .replace("{input}", state.input)
+    .replace("{user_mental_state}", user_mental_state || "")
+    + (repo_context ? `\n\nRepository Context:\n${repo_context}` : "");
+  
+  // Calcola i token del prompt di sistema
+  const systemPromptTokens = getTokenCount(systemPrompt);
+  
+  // Imposta il limite massimo di token (lascia spazio per la risposta)
+  const MAX_TOKEN_LIMIT = 110000; // Per gpt-4o-mini (128k - spazio per risposta)
+  
+  // Limita il numero di messaggi (mantieni solo gli ultimi N messaggi)
+  const MAX_MESSAGES = 20; // Mantieni solo gli ultimi 20 messaggi
+  
+  // Prendi solo gli ultimi N messaggi
+  const limitedMessages = state.messages.length > MAX_MESSAGES 
+    ? state.messages.slice(-MAX_MESSAGES) 
+    : state.messages;
+  
+  // Assicurati che i messaggi di tipo 'tool' abbiano i corrispondenti messaggi con 'tool_calls'
+  const validatedMessages = validateToolMessages(limitedMessages);
+  
+  // LLM decides whether to call a tool or not
+  const result = await llm_with_tools.invoke([{
+    role: "system",
+    content: systemPrompt
+  },
+  ...validatedMessages
+  ]);
+
+  return {
+    ...state,
+    messages: [...state.messages, result],
+    tool_confidence: result.tool_calls?.[0]?.args?.confidence || 0,
+  };
+}
+
+/**
+ * Valida i messaggi per assicurarsi che ogni messaggio di tipo 'tool' 
+ * abbia un corrispondente messaggio con 'tool_calls'
+ * @param {Array} messages - Array di messaggi
+ * @returns {Array} - Array di messaggi validato
+ */
+function validateToolMessages(messages) {
+  if (!messages || messages.length === 0) return [];
+  
+  // Mappa per tenere traccia dei tool_call_id e dei loro messaggi corrispondenti
+  const toolCallsMap = new Map();
+  const validMessages = [];
+  
+  // Prima passata: identifica tutti i messaggi con tool_calls
+  for (const message of messages) {
+    if (message?.tool_calls?.length > 0) {
+      message.tool_calls.forEach(toolCall => {
+        toolCallsMap.set(toolCall.id, message);
+      });
+    }
+  }
+  
+  // Seconda passata: includi solo i messaggi validi
+  for (const message of messages) {
+    // Se è un messaggio di tool, verifica che esista il corrispondente messaggio con tool_calls
+    if (message.role === 'tool' && message.tool_call_id) {
+      if (toolCallsMap.has(message.tool_call_id)) {
+        // Assicurati che il messaggio con tool_calls sia incluso prima
+        const toolCallMessage = toolCallsMap.get(message.tool_call_id);
+        if (!validMessages.includes(toolCallMessage)) {
+          validMessages.push(toolCallMessage);
+        }
+        validMessages.push(message);
+      }
+      // Se non c'è un messaggio corrispondente, salta questo messaggio di tool
+    } else {
+      // Includi tutti gli altri tipi di messaggi
+      validMessages.push(message);
+    }
+  }
+  
+  return validMessages;
 }
 
 async function updatedState(state) {
@@ -130,6 +192,23 @@ async function updatedState(state) {
               ...state,
                 generated_code: lastMessage.content,
             };
+        }
+
+        if (lastMessage.name === 'propose_followup' && state.proposed_followUp === undefined) {
+            let content = lastMessage.content;
+            if (typeof content === "string") {
+              try {
+                content = JSON.parse(content);
+              } catch (e) {
+                // Non è un JSON valido, lascialo così
+              }
+            }
+            if (typeof content === "object" && content !== null) {
+              return {
+                  ...state,
+                  proposed_followUp: content.followup,
+              };
+          }
         }
 
         if (lastMessage.name === 'extract_filename' && state.filename === undefined) {
@@ -225,6 +304,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   let generatedCode = undefined;
   let toolConfidence = 0.0;
   let refinedRequirement = undefined;
+  let proposedFollowUp = undefined;
   let msg = null;
   const printedMessages = new Set();
   
@@ -240,7 +320,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   
   try {
     // Utilizziamo gli input iniziali o null per continuare la conversazione
-    for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence } of await agentBuilder.stream(initialInputs, streamConfig)) {
+    for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence, proposed_followUp } of await agentBuilder.stream(initialInputs, streamConfig)) {
       msg = messages?.[messages.length - 1];
 
       if (tool_confidence !== undefined) {
@@ -264,6 +344,10 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
       if (generated_code !== undefined) {
         generatedCode = generated_code;
+      }
+
+      if (proposed_followUp !== undefined) {
+        proposedFollowUp = proposed_followUp;
       }
 
       // Gestione dei messaggi
@@ -317,7 +401,6 @@ export async function runAgentForExtention(initialInputs = null, webview) {
       // Gestione del codice generato
       if (generated_code !== undefined && !codeAlreadyPrinted && is_requirement === true) {
         codeAlreadyPrinted = true;
-        console.log("-----\n");
       }
 
       if (codeSaved === true) {
@@ -326,7 +409,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
     }
     
-    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement };
+    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);
     return { codeAlreadyPrinted, is_requirement: isRequirement, error: true, tool_confidence: toolConfidence};

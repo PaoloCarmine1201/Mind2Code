@@ -93,6 +93,7 @@ export class ChatViewProvider {
                 filename: undefined,
                 code_saved: false,
                 tool_confidence: undefined, // Imposta un valore di default
+                proposed_followUp: undefined,
               };
               const result = await runAgentForExtention(inputs, webview);
               await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
@@ -175,6 +176,13 @@ async function handleAgentResult(result, webview, continueCallback) {
     });
     this.conversationState = null;
     return;
+  }
+
+  if (result.proposed_followUp) {
+    webview.postMessage({ 
+      command: 'reply', 
+      text: '✅ Domanda follow up disponibile.\n Puoi visualizzare la domanda follow up qui.'
+    });
   }
 
   if (result.generated_code) {

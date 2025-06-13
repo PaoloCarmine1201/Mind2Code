@@ -245,7 +245,6 @@ const extract_filename = tool(async (input) => {
 //create a tool that generate code from the requirement
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
-    console.log("INPUT TO GENERATE CODE: ", JSON.stringify(input, null, 2));
 
 
     const response = await llm.withStructuredOutput(
@@ -296,6 +295,40 @@ const generate_code = tool(async (input) => {
 }
 
 )
+
+const propose_followup = tool(async (input) => {
+  console.log("PROPOSE FOLLOW-UP TOOL");
+  
+  // Utilizziamo il modello LLM per generare un follow-up basato sul requisito e sul codice generato
+  const response = await llm.withStructuredOutput(
+    z.object({
+      followup: z.string().describe("The proposed follow-up question or action.")
+    }),
+    { strict: true }
+  ).invoke([
+    {
+      role: "system",
+      content: `You are an assistant that proposes a follow-up question or action based on the generated code and refined requirement.
+
+        Refined requirement: "${input.refined_requirement}"
+        Generated Code: "${input.generated_code}"
+
+        Return ONLY a JSON object like: { "followup": "..." }
+        No comments, no explanations.`
+    }
+  ]);
+
+  return {
+    followup: response.followup
+  };
+},{
+  name: 'propose_followup',
+  description: 'Call to propose a follow-up question or action based on the generated code and requirement.',
+  schema: z.object({
+    refined_requirement: z.string().describe("The refined requirement text."),
+    generated_code: z.string().describe("The code that was generated based on the requirement.")
+  })
+})
 
 //create a tool that save the code into a file
 const save_code = tool(async (input) => {
@@ -377,5 +410,5 @@ async function saveCodeToFile(filename, code, webview = null) {
   }
 }
 
-export const tools = [is_requirement, refine_requirement, classify_language, generate_code, extract_filename, save_code];
+export const tools = [is_requirement, refine_requirement, classify_language, generate_code, propose_followup, extract_filename, save_code];
 export const toolNode = new ToolNode(tools);

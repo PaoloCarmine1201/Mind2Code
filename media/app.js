@@ -241,6 +241,14 @@ function removeLoadingMessages() {
 window.addEventListener('message', event => {
     const message = event.data;
 
+    if (message.command === 'loading') {
+        // Rimuovi eventuali messaggi di caricamento esistenti
+        removeLoadingMessages();
+        
+        // Aggiungi un nuovo messaggio di caricamento
+        appendMessage('Assistente', '', true);
+    }
+
     if (message.command === 'repoContext') {
         removeLoadingMessages();
         // Aggiungi il contesto della repository
@@ -405,6 +413,10 @@ window.addEventListener('message', event => {
             console.log("Sono in followUp:", followupText);
 
             appendMessage("Tool", followupText);
+        } else if (toolName === 'implement_improvement') {
+            console.log('Codice migliorato:', text);
+            text = markdownToHtml(text);
+            appendMessage('Tool', text);
         } else if (toolName === 'save_code') {
             text = "Codice salvato con successo! Qui sulla tua destra puoi vedere il file generato.";
             appendMessage('Tool', text);

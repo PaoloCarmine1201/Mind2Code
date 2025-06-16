@@ -11,7 +11,12 @@ export class ChatViewProvider {
     this._view = null;
     this.context = context;
     this.conversationState = null;
-    this.waitingForContinuation = false; //flag per continuare la conversazione
+    this.waitingForContinuation = false;
+    this.shownMessages = {
+      generated_code: false,
+      proposed_followUp: false,
+      improved_code: false
+    }; //flag per continuare la conversazione
   }
 
   async resolveWebviewView(webviewView) {
@@ -52,7 +57,10 @@ export class ChatViewProvider {
               const response = message.text.toLowerCase();
               if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
                 this.waitingForContinuation = false;
-                webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
+                
+                // Aggiungi messaggio di caricamento
+                webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
+                
                 const result = await runAgentForExtention(null, webview);
                 await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
               } else {
@@ -167,29 +175,44 @@ export class ChatViewProvider {
 async function handleAgentResult(result, webview, continueCallback) {
   const msg = result?.message || null;
 
-  // Se il codice è stato salvato, termina
-  //TODO: qui verranno crete le domande follow up
+  // Se il codice è stato salvato, termina e resetta lo stato dei messaggi mostrati
   if (result.code_saved) {
     webview.postMessage({ 
       command: 'reply', 
       text: '✅ Codice salvato con successo. Puoi iniziare una nuova richiesta.' 
     });
     this.conversationState = null;
+    this.shownMessages = {
+      generated_code: false,
+      proposed_followUp: false,
+      improved_code: false
+    };
     return;
   }
 
-  if (result.proposed_followUp) {
+  // Mostra solo i messaggi che non sono stati ancora mostrati
+  if (result.generated_code && !this.shownMessages.generated_code) {
     webview.postMessage({ 
       command: 'reply', 
-      text: '✅ Domanda follow up disponibile.\n Puoi visualizzare la domanda follow up qui.'
+      text: '✅ Codice generato disponibile.\nPuoi visualizzare il codice generato qui.'
     });
+    this.shownMessages.generated_code = true;
   }
-
-  if (result.generated_code) {
+  
+  if (result.proposed_followUp && !this.shownMessages.proposed_followUp) {
     webview.postMessage({ 
       command: 'reply', 
-      text: '✅ Codice generato disponibile.\n Puoi visualizzare il codice generato qui.'
+      text: '✅ Domanda follow up disponibile.\nPuoi visualizzare la domanda follow up qui.'
     });
+    this.shownMessages.proposed_followUp = true;
+  }
+  
+  if (result.improved_code && !this.shownMessages.improved_code) {
+    webview.postMessage({ 
+      command: 'reply', 
+      text: '✅ Codice migliorato disponibile.\nPuoi visualizzare il codice migliorato qui.'
+    });
+    this.shownMessages.improved_code = true;
   }
 
   // Se non è un requisito, termina
@@ -210,9 +233,13 @@ async function handleAgentResult(result, webview, continueCallback) {
       text: 'La tua richiesta è molto chiara, sono sicuro del prossimo passo da eseguire.\n' + 
         'Effettuo automaticamente la chiamata al tool ' + toolMessage + '.'
     });
-    webview.postMessage({ command: 'status', text: 'Elaborazione in corso...' });
+    
+    // Aggiungi messaggio di caricamento prima di continuare
+    webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
+    
     // Continua automaticamente
     const autoContinueResult = await continueCallback();
+    
     // Ricorsione: gestisci il nuovo risultato
     await handleAgentResult.call(this, autoContinueResult, webview, continueCallback); 
   } else {

@@ -64,6 +64,9 @@ If a tool does not have a "confidence" parameter, do not include it in the call.
 - **propose_followup(refined_requirement: str, generated_code: str)**  
   Suggests a follow-up question to improve the code generated
 
+- **implement_improvement(generated_code: str, followup: str, language: str)**  
+  Implements the suggested improvement to the generated code
+
 - **save_code(generated_code: str, filename: str)**  
   Saves the code to a file with the suggested filename
 
@@ -82,8 +85,9 @@ Follow these steps strictly:
 5. Use \`extract_filename\` to generate a filename.
 6. Use \`generate_code\` with the refined requirement and language.
 7. If the code has been generated, you MUST call \`propose_followup\`.
-8. Only after proposing the follow-up, you are allowed to call \`save_code\`.
-9. Stop execution after saving the file.
+8. If a follow-up is proposed, you MAY call \`implement_improvement\` to implement the suggested improvement.
+9. Only after proposing the follow-up (and optionally implementing improvements), you are allowed to call \`save_code\`.
+10. Stop execution after saving the file.
 
 ## AFTER THE CODE ARE GENERATED AND BEFORE SAVING
 Once the code has been generated using \`generate_code\`, you must call \`propose_followup\`.

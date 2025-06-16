@@ -16,5 +16,6 @@ export const AgentState = Annotation.Root({
     code_saved: Annotation(),
     tool_confidence: Annotation(),
     proposed_followUp: Annotation(),
+    improved_code: Annotation(), // Nuovo stato per il codice migliorato
 });
 

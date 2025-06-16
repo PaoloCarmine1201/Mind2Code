@@ -211,6 +211,14 @@ async function updatedState(state) {
           }
         }
 
+        if (lastMessage.name === 'implement_improvement' && state.improved_code === undefined) {
+          return {
+              ...state,
+              improved_code: lastMessage.content,
+              generated_code: lastMessage.content // Aggiorniamo anche il codice generato con quello migliorato
+          };
+        }      
+
         if (lastMessage.name === 'extract_filename' && state.filename === undefined) {
           let content = lastMessage.content;
           if (typeof content === "string") {
@@ -305,6 +313,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   let toolConfidence = 0.0;
   let refinedRequirement = undefined;
   let proposedFollowUp = undefined;
+  let improvedCode = undefined;
   let msg = null;
   const printedMessages = new Set();
   
@@ -320,11 +329,15 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   
   try {
     // Utilizziamo gli input iniziali o null per continuare la conversazione
-    for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence, proposed_followUp } of await agentBuilder.stream(initialInputs, streamConfig)) {
+    for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence, proposed_followUp, improved_code } of await agentBuilder.stream(initialInputs, streamConfig)) {
       msg = messages?.[messages.length - 1];
 
       if (tool_confidence !== undefined) {
         toolConfidence = tool_confidence;
+      }
+
+      if (improved_code !== undefined) {
+        improvedCode = improved_code;
       }
       
       // Aggiorna lo stato is_requirement
@@ -409,7 +422,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
     }
     
-    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp };
+    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp, improved_code: improvedCode };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);
     return { codeAlreadyPrinted, is_requirement: isRequirement, error: true, tool_confidence: toolConfidence};

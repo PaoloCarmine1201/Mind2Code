@@ -330,6 +330,46 @@ const propose_followup = tool(async (input) => {
   })
 })
 
+// Tool per implementare i miglioramenti proposti dal follow-up
+const implement_improvement = tool(async (input) => {
+  console.log("IMPLEMENT IMPROVEMENT TOOL");
+  
+  // Utilizziamo il modello LLM per implementare il miglioramento proposto
+  const response = await llm.withStructuredOutput(
+    z.object({
+      improved_code: z.string().describe("The improved code with the suggested changes implemented.")
+    }),
+    { strict: true }
+  ).invoke([
+    {
+      role: "system",
+      content: `You are an assistant that implements code improvements based on a follow-up suggestion.
+
+        Original Code: "${input.generated_code}"
+        Follow-up Suggestion: "${input.followup}"
+        Programming Language: ${input.language}
+        
+        Your task is to implement the improvements suggested in the follow-up.
+        
+        Return ONLY a JSON object like: { "improved_code": "..." }
+        The improved_code should be the complete code with the improvements implemented, not just the changes.
+        No comments, no explanations outside the code.`
+    }
+  ]);
+
+  const formattedCode = `\`\`\`\n${response.improved_code}\n\`\`\``;
+
+  return formattedCode;
+}, {
+  name: 'implement_improvement',
+  description: 'Call to implement improvements suggested in the follow-up.',
+  schema: z.object({
+    generated_code: z.string().describe("The original generated code."),
+    followup: z.string().describe("The follow-up suggestion for improvement."),
+    language: z.string().describe("The programming language of the code.")
+  })
+});
+
 //create a tool that save the code into a file
 const save_code = tool(async (input) => {
   console.log("SAVE CODE TOOL");
@@ -410,5 +450,5 @@ async function saveCodeToFile(filename, code, webview = null) {
   }
 }
 
-export const tools = [is_requirement, refine_requirement, classify_language, generate_code, propose_followup, extract_filename, save_code];
+export const tools = [is_requirement, refine_requirement, classify_language, generate_code, propose_followup, extract_filename, implement_improvement, save_code];
 export const toolNode = new ToolNode(tools);

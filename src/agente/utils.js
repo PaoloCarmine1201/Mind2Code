@@ -93,6 +93,9 @@ Follow these steps strictly:
 Once the code has been generated using \`generate_code\`, you must call \`propose_followup\`.
 This tool is used to suggest what the user might want to do next with the code (e.g., modify a function, add documentation, generate tests, etc.).
 
+IMPORTANT
+**AFTER THE FOLLOW-UP IS PROPOSED, YOU MUST CALL \`implement_improvement\` TO IMPLEMENT THE SUGGESTED IMPROVEMENT.**
+
 **Avoid calling any tool more than once unless necessary**.
 
 ## OUTPUT RULES

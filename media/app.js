@@ -354,6 +354,11 @@ window.addEventListener('message', event => {
         appendMessage('Assistente', message.text);
         showConfirmationButtons(message.options);
     }
+
+    if(message.command === 'askForFollowup') {
+        appendMessage('Assistente', message.text);
+        showConfirmationButtonsFollowup(message.options);
+    }
     
     if (message.command === 'initialMessage') {
         // Rimuovi eventuali messaggi di caricamento
@@ -452,6 +457,30 @@ window.addEventListener('message', event => {
             clearChat();
         }
 });
+
+// Funzione per mostrare i bottoni per le domande di followup
+function showConfirmationButtonsFollowup(options) {
+    const btnContainer = document.getElementById('confirmation-buttons');
+    btnContainer.innerHTML = '';
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.textContent = opt.label;
+        btn.className = 'confirmation-btn';
+
+        // Aggiungi un'icona in base al valore
+        if (opt.value === 'si') btn.textContent = '✅ ' + opt.label;
+        if (opt.value === 'no') btn.textContent = '❌ ' + opt.label;
+
+        btn.onclick = () => {
+            // Mostra in chat la scelta dell'utente
+            appendMessage('Tu', opt.label);
+            vscode.postMessage({ command: 'askFollowUp', text: opt.value });
+            btnContainer.innerHTML = '';
+        };
+        btnContainer.appendChild(btn);
+    });
+}
 
 // Funzione per mostrare i bottoni
 function showConfirmationButtons(options) {

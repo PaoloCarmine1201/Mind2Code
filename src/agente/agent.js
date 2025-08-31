@@ -43,12 +43,19 @@ async function llmCall(state) {
 
   const repo_context = state.repo_context || "";
   const user_mental_state = state.user_mental_state || "";
-  
-  // Crea il prompt di sistema
-  const systemPrompt = MEDIUM_SYSTEM_PROMPT
-    .replace("{input}", state.input)
-    .replace("{user_mental_state}", user_mental_state || "")
-    + (repo_context ? `\n\nRepository Context:\n${repo_context}` : "");
+
+  // normalizza improvement_confirmed per il prompt
+  const improvementConfirmed =
+    state.improvement_confirmed === undefined ? "undefined" : String(state.improvement_confirmed);
+
+  // Costruisci il system prompt sostituendo TUTTI i placeholder
+  let systemPrompt = MEDIUM_SYSTEM_PROMPT
+  .replace("{input}", String(state.input ?? ""))
+  .replace("{user_mental_state}", state.user_mental_state || "")
+  .replace("{repo_context}", state.repo_context || "")
+  .replace("{improvement_confirmed}", 
+           state.improvement_confirmed === undefined ? "undefined" : String(state.improvement_confirmed));
+
   
   // Calcola i token del prompt di sistema
   const systemPromptTokens = getTokenCount(systemPrompt);
@@ -67,12 +74,13 @@ async function llmCall(state) {
   // Assicurati che i messaggi di tipo 'tool' abbiano i corrispondenti messaggi con 'tool_calls'
   const validatedMessages = validateToolMessages(limitedMessages);
   
+  console.log("Prima di una chiamata ad un tool", state.improvement_confirmed)
   // LLM decides whether to call a tool or not
   const result = await llm_with_tools.invoke([{
     role: "system",
     content: systemPrompt
   },
-  ...validatedMessages
+  ...validatedMessages,
   ]);
 
   return {
@@ -90,45 +98,55 @@ async function llmCall(state) {
  */
 function validateToolMessages(messages) {
   if (!messages || messages.length === 0) return [];
-  
-  // Mappa per tenere traccia dei tool_call_id e dei loro messaggi corrispondenti
-  const toolCallsMap = new Map();
-  const validMessages = [];
-  
-  // Prima passata: identifica tutti i messaggi con tool_calls
-  for (const message of messages) {
-    if (message?.tool_calls?.length > 0) {
-      message.tool_calls.forEach(toolCall => {
-        toolCallsMap.set(toolCall.id, message);
-      });
-    }
+
+  // Raccogli tutti i tool_call_id che hanno una risposta 'tool'
+  const responded = new Set();
+  for (const m of messages) {
+    const isTool = m?.role === 'tool' || m?.constructor?.name === 'ToolMessage';
+    if (isTool && m.tool_call_id) responded.add(m.tool_call_id);
   }
-  
-  // Seconda passata: includi solo i messaggi validi
-  for (const message of messages) {
-    // Se è un messaggio di tool, verifica che esista il corrispondente messaggio con tool_calls
-    if (message.role === 'tool' && message.tool_call_id) {
-      if (toolCallsMap.has(message.tool_call_id)) {
-        // Assicurati che il messaggio con tool_calls sia incluso prima
-        const toolCallMessage = toolCallsMap.get(message.tool_call_id);
-        if (!validMessages.includes(toolCallMessage)) {
-          validMessages.push(toolCallMessage);
-        }
-        validMessages.push(message);
+
+  const result = [];
+  for (const m of messages) {
+    const isTool = m?.role === 'tool' || m?.constructor?.name === 'ToolMessage';
+    const hasToolCalls = Array.isArray(m?.tool_calls) && m.tool_calls.length > 0;
+
+    if (hasToolCalls) {
+      // Teniamo l'assistant SOLO se TUTTI i suoi tool_calls hanno una risposta successiva
+      const ids = m.tool_calls.map(tc => tc.id);
+      const allResponded = ids.every(id => responded.has(id));
+      if (allResponded) {
+        result.push(m);
+      } else {
+        // SCARTA assistant con tool_calls non soddisfatti
+        continue;
       }
-      // Se non c'è un messaggio corrispondente, salta questo messaggio di tool
+    } else if (isTool) {
+      // Includi il tool SOLO se il relativo assistant (con il suo tool_call_id) è stato incluso
+      const parentIncluded = result.some(
+        am => Array.isArray(am?.tool_calls) && am.tool_calls.some(tc => tc.id === m.tool_call_id)
+      );
+      if (parentIncluded) result.push(m);
+      // altrimenti scarta tool orfano
     } else {
-      // Includi tutti gli altri tipi di messaggi
-      validMessages.push(message);
+      // Messaggi normali (user/assistant senza tool_calls)
+      result.push(m);
     }
   }
-  
-  return validMessages;
+  return result;
 }
+
 
 async function updatedState(state) {
     const messages = state.messages;
     const lastMessage = messages.at(-1);
+
+    if (state.improvement_confirmed === false && state.awaiting_improvement_confirmation) {
+      return {
+        ...state,
+        awaiting_improvement_confirmation: false
+      };
+    }
 
     // Se l'ultimo messaggio è una risposta di un tool
     if (lastMessage && (lastMessage.role === 'tool' || lastMessage.constructor.name === 'ToolMessage')) {
@@ -207,6 +225,8 @@ async function updatedState(state) {
               return {
                   ...state,
                   proposed_followUp: content.followup,
+                  awaiting_improvement_confirmation: true,
+                  tool_confidence: content.confidence
               };
           }
         }
@@ -215,7 +235,8 @@ async function updatedState(state) {
           return {
               ...state,
               improved_code: lastMessage.content,
-              generated_code: lastMessage.content // Aggiorniamo anche il codice generato con quello migliorato
+              generated_code: lastMessage.content, // Aggiorniamo anche il codice generato con quello migliorato
+              awaiting_improvement_confirmation: false
           };
         }      
 
@@ -240,7 +261,8 @@ async function updatedState(state) {
             return {
                 ...state,
                 terminate: true,
-                code_saved: true
+                code_saved: true,
+                tool_confidence: lastMessage.content.confidence
             };
         }
     }
@@ -315,11 +337,12 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   let proposedFollowUp = undefined;
   let improvedCode = undefined;
   let msg = null;
+  let awaitingImprovementConfirmation = false;
   const printedMessages = new Set();
   
     // Se stiamo iniziando una nuova conversazione, resetta l'agente
-    if (initialInputs !== null) {
-        resetAgent();
+    if (initialInputs !== null && initialInputs.improvement_confirmed === true) {
+      resetAgent(); // reset solo quando parte una NUOVA conversazione utente
     }
 
   const streamConfig = {
@@ -329,7 +352,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   
   try {
     // Utilizziamo gli input iniziali o null per continuare la conversazione
-    for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence, proposed_followUp, improved_code } of await agentBuilder.stream(initialInputs, streamConfig)) {
+    for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence, proposed_followUp, improved_code, awaiting_improvement_confirmation, improvement_confirmed } of await agentBuilder.stream(initialInputs, streamConfig)) {
       msg = messages?.[messages.length - 1];
 
       if (tool_confidence !== undefined) {
@@ -338,6 +361,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
       if (improved_code !== undefined) {
         improvedCode = improved_code;
+        awaitingImprovementConfirmation = awaiting_improvement_confirmation;
       }
       
       // Aggiorna lo stato is_requirement
@@ -361,6 +385,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
       if (proposed_followUp !== undefined) {
         proposedFollowUp = proposed_followUp;
+        awaitingImprovementConfirmation = awaiting_improvement_confirmation;
       }
 
       // Gestione dei messaggi
@@ -422,7 +447,8 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
     }
     
-    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp, improved_code: improvedCode };
+    console.log("awaiting Improvement Confirmation: ", awaitingImprovementConfirmation);
+    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp, improved_code: improvedCode, awaiting_improvement_confirmation: awaitingImprovementConfirmation };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);
     return { codeAlreadyPrinted, is_requirement: isRequirement, error: true, tool_confidence: toolConfidence};

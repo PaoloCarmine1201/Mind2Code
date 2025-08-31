@@ -91,6 +91,9 @@ const refine_requirement = tool(async (input) => {
 
         Only return a JSON object — no extra explanation or comments.
 
+        OBBLIGATORIO
+        La risposta deve essere SEMPRE in italiano
+
         ---
 
         **User Request:**
@@ -225,6 +228,12 @@ const extract_filename = tool(async (input) => {
       filename = filename.replace(/\.\w+$/, "") + ".java";
   } else if (input.language === "cpp" && !filename.endsWith(".cpp")) {
       filename = filename.replace(/\.\w+$/, "") + ".cpp";
+  } else if (input.language === "go" && !filename.endsWith(".go")) {
+      filename = filename.replace(/\.\w+$/, "") + ".go";
+  } else if (input.language === "typescript" && !filename.endsWith(".ts")) {
+      filename = filename.replace(/\.\w+$/, "") + ".ts";
+  } else if (input.language === "c" && !filename.endsWith(".c")) {
+      filename = filename.replace(/\.\w+$/, "") + ".c";
   }
 
   return {
@@ -246,6 +255,16 @@ const extract_filename = tool(async (input) => {
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
 
+    console.log("INPUT DA GENERARE CODICE: ", input.requirement)
+
+    const refineReq = JSON.parse(input.requirement)
+
+    console.log("REFINED REQUIREMENT PARSED: ", refineReq)
+    console.log("Stampo solo user_story", refineReq.user_story)
+    refineReq.acceptance_criteria.forEach(ac => {
+      console.log(ac);
+    });
+
 
     const response = await llm.withStructuredOutput(
       z.object({
@@ -260,6 +279,9 @@ const generate_code = tool(async (input) => {
                 The code should be written in the ${input.language} programming language.
 
                 Input to analyze: "${input.requirement}"
+
+                IMPORTANT: Carefully consider all the acceptance criteria.
+                ${refineReq.acceptance_criteria.map(ac => `- ${ac}`).join("\n")}
 
                 IMPORTANT: Carefully consider the following user profile when generating the code. 
                 Adapt the code style, complexity, comments, and structure to match the user's preferences and experience level.
@@ -308,13 +330,19 @@ const propose_followup = tool(async (input) => {
   ).invoke([
     {
       role: "system",
-      content: `You are an assistant that proposes a follow-up question or action based on the generated code and refined requirement.
+      content: `You are an assistant that proposes a follow-up improvement to the generated code. 
+                The follow-up must always be a yes/no question, phrased so that the user can simply answer "yes" to implement it or "no" to skip it. 
+                Do NOT propose open-ended or vague questions (e.g., "What additional measures..."). 
+                The follow-up should suggest a concrete, implementable improvement to the code, directly related to the requirement. 
 
         Refined requirement: "${input.refined_requirement}"
         Generated Code: "${input.generated_code}"
 
         Return ONLY a JSON object like: { "followup": "..." }
-        No comments, no explanations.`
+        No comments, no explanations.
+        
+        OBBLIGATORIO
+        La risposta deve essere sempre in italiano`
     }
   ]);
 
@@ -326,7 +354,8 @@ const propose_followup = tool(async (input) => {
   description: 'Call to propose a follow-up question or action based on the generated code and requirement.',
   schema: z.object({
     refined_requirement: z.string().describe("The refined requirement text."),
-    generated_code: z.string().describe("The code that was generated based on the requirement.")
+    generated_code: z.string().describe("The code that was generated based on the requirement."),
+    confidence: z.number().optional().describe("Confidence level for the follow-up proposal, between 0 and 1."),
   })
 })
 
@@ -403,6 +432,7 @@ const save_code = tool(async (input) => {
     schema: z.object({
       generated_code: z.string().describe("The generated code to save."),
       filename: z.string().describe("The filename to save the code into."),
+      confidence: z.number().optional().describe("Confidence level for the save operation, between 0 and 1."),
     })
 })
 

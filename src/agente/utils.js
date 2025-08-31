@@ -61,13 +61,13 @@ If a tool does not have a "confidence" parameter, do not include it in the call.
 - **generate_code(requirement: str, language: str, user_profile: str)**  
   Generates code based on the refined requirement
 
-- **propose_followup(refined_requirement: str, generated_code: str)**  
+- **propose_followup(refined_requirement: str, generated_code: str, confidence: float)**  
   Suggests a follow-up question to improve the code generated
 
 - **implement_improvement(generated_code: str, followup: str, language: str)**  
   Implements the suggested improvement to the generated code
 
-- **save_code(generated_code: str, filename: str)**  
+- **save_code(generated_code: str, filename: str, confidence: float)**  
   Saves the code to a file with the suggested filename
 
 ## CURRENT INPUT
@@ -84,17 +84,20 @@ Follow these steps strictly:
 4. Use \`classify_language\` to identify the language.
 5. Use \`extract_filename\` to generate a filename.
 6. Use \`generate_code\` with the refined requirement and language.
-7. If the code has been generated, you MUST call \`propose_followup\`.
-8. If a follow-up is proposed, you MAY call \`implement_improvement\` to implement the suggested improvement.
-9. Only after proposing the follow-up (and optionally implementing improvements), you are allowed to call \`save_code\`.
-10. Stop execution after saving the file.
+7. After generating the code, you MUST call \`propose_followup\`.
+8. Then:
+   - If \`improvement_confirmed === true\`, call \`implement_improvement\`.
+   - If \`improvement_confirmed === false\`, SKIP \`implement_improvement\` and call \`save_code\`.
+   - If \`improvement_confirmed\` is undefined, stop and wait for the user's decision.
+
+   Current improvement decision: {improvement_confirmed}
+    - If false: do not call implement_improvement; call save_code next.
+    - If true: implement_improvement, then save_code.
+9. Stop execution after saving the file.
 
 ## AFTER THE CODE ARE GENERATED AND BEFORE SAVING
 Once the code has been generated using \`generate_code\`, you must call \`propose_followup\`.
 This tool is used to suggest what the user might want to do next with the code (e.g., modify a function, add documentation, generate tests, etc.).
-
-IMPORTANT
-**AFTER THE FOLLOW-UP IS PROPOSED, YOU MUST CALL \`implement_improvement\` TO IMPLEMENT THE SUGGESTED IMPROVEMENT.**
 
 **Avoid calling any tool more than once unless necessary**.
 

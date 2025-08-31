@@ -1,7 +1,7 @@
 // @ts-nocheck
 import * as vscode from 'vscode'
 import { agentBuilder, runAgentForExtention } from '../agente/agent.js';
-import { HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { getGithubContext, createGithubContext } from '../commands/githubContextCommand.js';
 import { getToMProfile, StartTomQuiz } from '../commands/TheoryOfMindCommand.js';
 
@@ -60,7 +60,8 @@ export class ChatViewProvider {
                 
                 // Aggiungi messaggio di caricamento
                 webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
-                
+                //TODO: dovrei andare a creare qua i nuovi input dell'utente dicendo che l'utente ha accetta di implementare il miglioramento
+                //ma se creo nuovi input, vado a creare una conversazione da capo dell'agente perchè c'è reset agent, devo capire come fare
                 const result = await runAgentForExtention(null, webview);
                 await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
               } else {
@@ -102,6 +103,9 @@ export class ChatViewProvider {
                 code_saved: false,
                 tool_confidence: undefined, // Imposta un valore di default
                 proposed_followUp: undefined,
+                improvement_confirmed: true,
+                awaiting_improvement_confirmation: undefined,
+                improved_code: undefined
               };
               const result = await runAgentForExtention(inputs, webview);
               await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
@@ -113,6 +117,48 @@ export class ChatViewProvider {
             text: 'Si è verificato un errore durante l\'elaborazione della richiesta: ' + error.message 
           });
           
+          // Resetta lo stato in caso di errore
+          this.conversationState = null;
+          this.waitingForContinuation = false;
+        }
+      }
+
+      if (message.command === 'askFollowUp') {
+        try {
+          if (this.waitingForContinuation) {
+              const response = message.text.toLowerCase();
+              if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
+                console.log("Sono qui dentro nel si, teoricamente mando avanti l\'esecuzione cosi com\'è")
+                this.waitingForContinuation = false;
+                
+                // Aggiungi messaggio di caricamento
+                webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
+                //non modifico gli input
+                const result = await runAgentForExtention(null, webview);
+                await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
+                
+              } else {
+                webview.postMessage({ 
+                  command: 'reply', 
+                  text: 'Miglioramento non implementato. Procedo a salvare il codice finale, dopo puoi iniziare una nuova richiesta' 
+                });
+                webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
+                //prendo gli stessi input di prima ma aggiungo che non voglio implementare il codice, 
+                // andando a modificare improvement_confirmed nello stato a false, 
+                // per fare capire che non deve implementare il miglioramento ma deve direttamente salvare il codice
+                const result = await runAgentForExtention({
+                    improvement_confirmed: false,
+                    awaiting_improvement_confirmation: false,
+                  }, webview);
+                await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
+              }
+            }
+        } catch (error) {
+          console.error('Errore durante l\'elaborazione:', error);
+          webview.postMessage({ 
+            command: 'reply', 
+            text: 'Si è verificato un errore durante l\'elaborazione della richiesta: ' + error.message 
+          });
           // Resetta lo stato in caso di errore
           this.conversationState = null;
           this.waitingForContinuation = false;
@@ -222,6 +268,19 @@ async function handleAgentResult(result, webview, continueCallback) {
       text: "❌ Non è un requisito, termino l'esecuzione"
     });
     return;
+  }
+
+  if (result.awaiting_improvement_confirmation) {
+    this.waitingForContinuation = true;
+    webview.postMessage({
+      command: 'askForFollowup',
+      text: 'Vuoi migliorare il codice?',
+      options: [
+          { label: 'Si, voglio migliorarlo', value: 'si' },
+          { label: 'No, voglio salvarlo', value: 'no' }
+        ]
+      });
+      return;
   }
   
   // --- Qui la logica generalizzata per la confidence ---

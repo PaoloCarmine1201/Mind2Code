@@ -57,30 +57,19 @@ async function llmCall(state) {
            state.improvement_confirmed === undefined ? "undefined" : String(state.improvement_confirmed));
 
   
-  // Calcola i token del prompt di sistema
-  const systemPromptTokens = getTokenCount(systemPrompt);
-  
-  // Imposta il limite massimo di token (lascia spazio per la risposta)
-  const MAX_TOKEN_LIMIT = 110000; // Per gpt-4o-mini (128k - spazio per risposta)
-  
-  // Limita il numero di messaggi (mantieni solo gli ultimi N messaggi)
-  const MAX_MESSAGES = 20; // Mantieni solo gli ultimi 20 messaggi
-  
-  // Prendi solo gli ultimi N messaggi
-  const limitedMessages = state.messages.length > MAX_MESSAGES 
-    ? state.messages.slice(-MAX_MESSAGES) 
-    : state.messages;
-  
-  // Assicurati che i messaggi di tipo 'tool' abbiano i corrispondenti messaggi con 'tool_calls'
-  const validatedMessages = validateToolMessages(limitedMessages);
-  
-  console.log("Prima di una chiamata ad un tool", state.improvement_confirmed)
-  // LLM decides whether to call a tool or not
-  const result = await llm_with_tools.invoke([{
-    role: "system",
-    content: systemPrompt
-  },
-  ...validatedMessages,
+  // --- NUOVO: prendi una finestra candidata più larga, poi sanifica e accorcia ---
+  const MAX_MESSAGES = 12;            // target
+  const CANDIDATE_WINDOW = 50;        // finestra ampia per non spezzare catene
+  const recent = (state.messages ?? []).slice(-CANDIDATE_WINDOW);
+
+  // 1) sanifica catene tool
+  let validWindow = validateToolMessages(recent);
+  // 2) accorcia a MAX_MESSAGES mantenendo validità
+  validWindow = trimToMax(validWindow, MAX_MESSAGES);
+
+  const result = await llm_with_tools.invoke([
+    { role: "system", content: systemPrompt },
+    ...validWindow
   ]);
 
   return {
@@ -96,10 +85,11 @@ async function llmCall(state) {
  * @param {Array} messages - Array di messaggi
  * @returns {Array} - Array di messaggi validato
  */
+// Mantieni solo coppie valide assistant(tool_calls) <-> tool
 function validateToolMessages(messages) {
-  if (!messages || messages.length === 0) return [];
+  if (!messages?.length) return [];
 
-  // Raccogli tutti i tool_call_id che hanno una risposta 'tool'
+  // tool_call_id che hanno una risposta 'tool'
   const responded = new Set();
   for (const m of messages) {
     const isTool = m?.role === 'tool' || m?.constructor?.name === 'ToolMessage';
@@ -112,28 +102,33 @@ function validateToolMessages(messages) {
     const hasToolCalls = Array.isArray(m?.tool_calls) && m.tool_calls.length > 0;
 
     if (hasToolCalls) {
-      // Teniamo l'assistant SOLO se TUTTI i suoi tool_calls hanno una risposta successiva
+      // Tieni l'assistant solo se TUTTI i suoi tool_calls hanno una risposta
       const ids = m.tool_calls.map(tc => tc.id);
       const allResponded = ids.every(id => responded.has(id));
-      if (allResponded) {
-        result.push(m);
-      } else {
-        // SCARTA assistant con tool_calls non soddisfatti
-        continue;
-      }
+      if (allResponded) result.push(m);
+      // altrimenti scarta (evita errori 400)
     } else if (isTool) {
-      // Includi il tool SOLO se il relativo assistant (con il suo tool_call_id) è stato incluso
+      // Tieni il tool solo se il suo parent assistant è stato incluso sopra
       const parentIncluded = result.some(
         am => Array.isArray(am?.tool_calls) && am.tool_calls.some(tc => tc.id === m.tool_call_id)
       );
       if (parentIncluded) result.push(m);
-      // altrimenti scarta tool orfano
     } else {
-      // Messaggi normali (user/assistant senza tool_calls)
+      // user/assistant senza tool_calls
       result.push(m);
     }
   }
   return result;
+}
+
+// Accorcia la lista mantenendo la validità (taglia dall'inizio)
+function trimToMax(messages, max) {
+  let cur = [...messages];
+  while (cur.length > max) {
+    cur.shift();                    // rimuovi il più vecchio
+    cur = validateToolMessages(cur); // ri-sanitizza
+  }
+  return cur;
 }
 
 
@@ -275,7 +270,6 @@ let checkpointer = new MemorySaver();
 
 function createAgent() {
 
-  checkpointer = new MemorySaver();
   return new StateGraph(AgentState)
     .addNode("llmCall", llmCall)
     .addNode("tools", toolNode)
@@ -292,15 +286,24 @@ function createAgent() {
     )
     .addEdge("tools", "updateState") // After exectuing the tool, update the state
     .addEdge("updateState", "llmCall")
-    .compile({ checkpointer,
-    interruptBefore:["tools"]
-  }); // After updating the state, continue the conversation
+   // After updating the state, continue the conversation
 }
 
-export let agentBuilder = createAgent();
+// 👉 factory che compila con/senza interrupt
+function compileAgent({ interrupt }) {
+  return createAgent().compile({
+    checkpointer,                       // ✨ condiviso
+    interruptBefore: interrupt ? ["tools"] : [] // on/off
+  });
+}
+
+export let agentBuilder = compileAgent({ interrupt: true });   // come il tuo attuale
+export let agentAuto = compileAgent({ interrupt: false });  // no-interrupt
 
 export function resetAgent() {
-  agentBuilder = createAgent();
+  checkpointer = new MemorySaver(); // resetta la memoria
+  agentBuilder = compileAgent({ interrupt: true });   // ✅ ricompilato
+  agentAuto    = compileAgent({ interrupt: false });  // ✅ ricompilato
 }
 /*
 function createImageOfGraph(state) {
@@ -332,6 +335,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   let isRequirement = undefined;
   let codeSaved = false;
   let generatedCode = undefined;
+  let fileName = undefined;
   let toolConfidence = 0.0;
   let refinedRequirement = undefined;
   let proposedFollowUp = undefined;
@@ -362,6 +366,10 @@ export async function runAgentForExtention(initialInputs = null, webview) {
       if (improved_code !== undefined) {
         improvedCode = improved_code;
         awaitingImprovementConfirmation = awaiting_improvement_confirmation;
+      }
+
+      if(filename !== undefined){
+        fileName = filename;
       }
       
       // Aggiorna lo stato is_requirement
@@ -442,13 +450,13 @@ export async function runAgentForExtention(initialInputs = null, webview) {
       }
 
       if (codeSaved === true) {
-        return { codeAlreadyPrinted: true, is_requirement: true, code_saved: true, tool_confidence: toolConfidence, message: msg, refined_requirement: refinedRequirement };
+        return { codeAlreadyPrinted: true, is_requirement: true, code_saved: true, tool_confidence: toolConfidence, message: msg, refined_requirement: refinedRequirement, filename: fileName };
       }
 
     }
     
     console.log("awaiting Improvement Confirmation: ", awaitingImprovementConfirmation);
-    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp, improved_code: improvedCode, awaiting_improvement_confirmation: awaitingImprovementConfirmation };
+    return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp, improved_code: improvedCode, awaiting_improvement_confirmation: awaitingImprovementConfirmation, filename: fileName };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);
     return { codeAlreadyPrinted, is_requirement: isRequirement, error: true, tool_confidence: toolConfidence};

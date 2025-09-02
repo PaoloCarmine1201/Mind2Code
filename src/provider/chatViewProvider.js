@@ -4,6 +4,8 @@ import { agentBuilder, runAgentForExtention } from '../agente/agent.js';
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { getGithubContext, createGithubContext } from '../commands/githubContextCommand.js';
 import { getToMProfile, StartTomQuiz } from '../commands/TheoryOfMindCommand.js';
+import { save_code } from '../agente/AgentTool.js';
+import { agentAuto } from '../agente/agent.js';
 
 export class ChatViewProvider {
   constructor(extensionUri, context) {
@@ -12,6 +14,8 @@ export class ChatViewProvider {
     this.context = context;
     this.conversationState = null;
     this.waitingForContinuation = false;
+    this.codeToSave = null;
+    this.fileName = null;
     this.shownMessages = {
       generated_code: false,
       proposed_followUp: false,
@@ -134,8 +138,83 @@ export class ChatViewProvider {
                 // Aggiungi messaggio di caricamento
                 webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
                 //non modifico gli input
-                const result = await runAgentForExtention(null, webview);
-                await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
+                //esecuzione con agent con interrupt before
+                {
+                  /*const result = await runAgentForExtention(null, webview);
+                  await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));*/
+                }
+                // Comunica la scelta all’agent (senza messaggi nuovi → niente reset)
+                const stateDelta = { improvement_confirmed: true };
+
+                const streamConfig = { 
+                  configurable: { thread_id: "conversation-num-1" }, 
+                  streamMode: "values" 
+                };
+                try {
+                  if (!this._printedMessages) this._printedMessages = new Set();
+                  
+                  //Esecuzione con altro agent senza interrupt before, stessa memoria stesso thread messaggi
+                  for await (const snapshot of await agentAuto.stream(stateDelta, streamConfig)) {
+
+                    // --- 1) Estrai l'ultimo messaggio e stampalo come fai altrove ---
+                    const messages = snapshot?.messages ?? [];
+                    const msg = messages.at ? messages.at(-1) : messages[messages.length - 1];
+
+                    if (msg?.content) {
+                      let toPrint = msg.content;
+
+                      // prova il parse JSON se è stringa
+                      if (typeof toPrint === "string") {
+                        try { toPrint = JSON.parse(toPrint); } catch (_) { /* lascia com'è */ }
+                      }
+
+                      // se è un oggetto con 'confidence', rimuovilo
+                      if (toPrint && typeof toPrint === "object" && "confidence" in toPrint) {
+                        const { confidence, ...rest } = toPrint;
+                        const keys = Object.keys(rest);
+                        toPrint = (keys.length === 1) ? rest[keys[0]] : rest;
+                      }
+
+                      const isToolMsg = (msg.role === 'tool' || msg.constructor?.name === 'ToolMessage');
+                      const printedMessages = this._printedMessages;
+
+                      if (isToolMsg) {
+                        const key = `${msg.name}:${typeof toPrint === "object" ? JSON.stringify(toPrint) : String(toPrint)}`;
+                        if (!printedMessages.has(key)) {
+                          let text = toPrint;
+                          if (typeof text === "object" && text !== null) text = JSON.stringify(text);
+                          webview.postMessage({ command: 'tool_output', text: String(text), toolName: msg.name });
+                          printedMessages.add(key);
+                        }
+                      } else {
+                        const key = typeof toPrint === "object" && toPrint !== null ? JSON.stringify(toPrint) : String(toPrint);
+                        if (!printedMessages.has(key)) {
+                          let text = toPrint;
+                          if (typeof text === "object" && text !== null) text = JSON.stringify(text);
+                          webview.postMessage({ command: 'initialMessage', text: String(text) });
+                          printedMessages.add(key);
+                        }
+                      }
+                    }
+
+                    if (snapshot.improved_code && !this.shownMessages.improved_code) {
+                      webview.postMessage({ command: 'reply', text: '✅ Codice migliorato disponibile.\nPuoi visualizzare il codice migliorato qui.' });
+                      this.shownMessages.improved_code = true;
+                    }
+
+                    if (snapshot?.code_saved) {
+                      webview.postMessage({ command: 'reply', text: '✅ Codice migliorato e salvato. Puoi iniziare una nuova richiesta.' });
+                      // reset flag UI
+                      this.conversationState = null;
+                      this.shownMessages = { generated_code: false, proposed_followUp: false, improved_code: false };
+                      break;
+                    }
+                  }
+                } catch (err) {
+                  console.error('Errore in auto-run:', err);
+                  webview.postMessage({ command: 'reply', text: '❌ Errore durante il miglioramento/salvataggio: ' + (err?.message || String(err)) });
+                  this.waitingForContinuation = false;
+                }
                 
               } else {
                 webview.postMessage({ 
@@ -143,15 +222,43 @@ export class ChatViewProvider {
                   text: 'Miglioramento non implementato. Procedo a salvare il codice finale, dopo puoi iniziare una nuova richiesta' 
                 });
                 webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
-                //prendo gli stessi input di prima ma aggiungo che non voglio implementare il codice, 
-                // andando a modificare improvement_confirmed nello stato a false, 
-                // per fare capire che non deve implementare il miglioramento ma deve direttamente salvare il codice
-                const result = await runAgentForExtention({
-                    improvement_confirmed: false,
-                    awaiting_improvement_confirmation: false,
-                  }, webview);
-                await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
+                console.log("Sono qui dentro nel no, non voglio implementare il miglioramento")
+                {
+                  /*
+                  prendo gli stessi input di prima ma aggiungo che non voglio implementare il codice, 
+                  // andando a modificare improvement_confirmed nello stato a false, 
+                  // per fare capire che non deve implementare il miglioramento ma deve direttamente salvare il codice
+                  // esecuzione automatica con agent (tempo aggiuntivo)
+  
+                  const result = await runAgentForExtention({
+                      improvement_confirmed: false,
+                      awaiting_improvement_confirmation: false,
+                    }, webview);
+                  await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
+                  
+                  console.log('typeof code:', typeof this.codeToSave);
+                  console.log('preview code:', (this.codeToSave || '').slice(0, 60));
+                  console.log('typeof filename:', typeof this.fileName, 'value:', this.fileName);*/
+                }
+                this.waitingForContinuation = false;
+
+                const result = await save_code.invoke({
+                  generated_code: this.codeToSave,
+                  filename: this.fileName,
+                  confidence: 0.7
+                });
+                if (result) {
+                  webview.postMessage({ command: 'reply', text: `✅ Codice salvato in ${this.fileName}. Puoi iniziare una nuova richiesta.` });
+                } else {
+                  webview.postMessage({ command: 'reply', text: '❌ Errore durante il salvataggio del codice.' });
+                }
+
               }
+
+              // Reset stato conversazione lato UI
+              this.conversationState = null;
+              this.shownMessages = { generated_code: false, proposed_followUp: false, improved_code: false };
+
             }
         } catch (error) {
           console.error('Errore durante l\'elaborazione:', error);
@@ -236,12 +343,18 @@ async function handleAgentResult(result, webview, continueCallback) {
     return;
   }
 
+  if (result.filename) {
+    this.fileName = result.filename;
+  }
+
   // Mostra solo i messaggi che non sono stati ancora mostrati
   if (result.generated_code && !this.shownMessages.generated_code) {
     webview.postMessage({ 
       command: 'reply', 
       text: '✅ Codice generato disponibile.\nPuoi visualizzare il codice generato qui.'
     });
+    this.codeToSave = result.generated_code;
+    this.fileName = result.filename;
     this.shownMessages.generated_code = true;
   }
   

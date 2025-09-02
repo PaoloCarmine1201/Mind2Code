@@ -255,16 +255,8 @@ const extract_filename = tool(async (input) => {
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
 
-    console.log("INPUT DA GENERARE CODICE: ", input.requirement)
-
+    
     const refineReq = JSON.parse(input.requirement)
-
-    console.log("REFINED REQUIREMENT PARSED: ", refineReq)
-    console.log("Stampo solo user_story", refineReq.user_story)
-    refineReq.acceptance_criteria.forEach(ac => {
-      console.log(ac);
-    });
-
 
     const response = await llm.withStructuredOutput(
       z.object({
@@ -400,7 +392,7 @@ const implement_improvement = tool(async (input) => {
 });
 
 //create a tool that save the code into a file
-const save_code = tool(async (input) => {
+export const save_code = tool(async (input) => {
   console.log("SAVE CODE TOOL");
   let code = input.generated_code;
   let filename = input.filename;

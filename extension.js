@@ -28,21 +28,32 @@ export function activate(context) {
 		vscode.window.registerWebviewViewProvider('Mind2CodeView', chatViewProvider)
 	);
 
-	  // Pulisci la chat all'avvio dell'estensione
-	// Utilizziamo setTimeout per assicurarci che la webview sia completamente caricata
 	setTimeout(async() => {
 		// Ottieni il contesto della repository
+		chatViewProvider.clearChat();
+	}, 1000);
+
+	  // Pulisci la chat all'avvio dell'estensione
+		(async () => {
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		if (workspaceFolder) {
-			const repoContext = await getGithubContext(workspaceFolder, context);
-			if (repoContext) {
-				// Pulisci la chat ma mantieni il messaggio del contesto repository
-				chatViewProvider.clearChat();
-				// Aggiorna il messaggio del contesto repository
-				chatViewProvider.updateRepoContext(repoContext);
+			let repoContext = null;
+			
+			// Ciclo che controlla ogni 15 secondi finché non ottiene un repoContext valido
+			while (!repoContext) {
+				repoContext = await getGithubContext(workspaceFolder, context);
+				if (repoContext) {
+					// Pulisci la chat ma mantieni il messaggio del contesto repository
+					chatViewProvider.clearChat();
+					// Aggiorna il messaggio del contesto repository
+					chatViewProvider.updateRepoContext(repoContext);
+					break; // Esce dal ciclo quando ha un valore valido
+				} else {
+					await new Promise(res => setTimeout(res, 1000));
+				}
 			}
 		}
-	}, 1000);
+	})();
 
 	const commands = [
 		{ 
@@ -66,11 +77,16 @@ export function activate(context) {
 		{
 		  name: 'Mind2Code.getGithubContext', 
 		  callback: async () => {
-			const githubContext = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, context);
-			if (githubContext) {
-			  vscode.window.showInformationMessage(`Owner get: ${githubContext.owner}, Repo get qui: ${githubContext.repo}`);
-			} else {
-			  vscode.window.showErrorMessage('Nessun profilo della repository trovato.');
+			const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (workspaceFolder) {
+			const repoContext = await getGithubContext(workspaceFolder, context);
+				if (repoContext) {
+					// Aggiorna il messaggio del contesto repository
+					vscode.window.showInformationMessage(`Owner: ${repoContext.owner}, Repo: ${repoContext.repo}`);
+					chatViewProvider.updateRepoContext(repoContext);
+				} else {
+					vscode.window.showErrorMessage('Nessun profilo della repository trovato.');
+				}
 			}
 		  }
 		},

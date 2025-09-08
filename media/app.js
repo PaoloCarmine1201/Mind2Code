@@ -1,6 +1,19 @@
 // @ts-nocheck
 const vscode = acquireVsCodeApi();
 
+// --- LOCK INPUT CHAT ---
+let inputLocked = false;
+
+function setInputLocked(locked) {
+  inputLocked = locked;
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  const inputArea = document.getElementById('input-area');
+  if (inputEl) inputEl.disabled = locked;
+  if (sendBtn) sendBtn.disabled = locked;
+  if (inputArea) inputArea.classList.toggle('locked', locked);
+}
+
 // Stato della chat
 let chatMessages = [];
 
@@ -198,6 +211,7 @@ function escapeHtml(text) {
 
 // Gestisci l'invio del messaggio
 document.getElementById('send').addEventListener('click', () => {
+    if (inputLocked) return; // 👉 blocca invio se locked
     const input = document.getElementById('input');
     const text = input.value.trim();
     if (!text) return;
@@ -213,6 +227,9 @@ document.getElementById('send').addEventListener('click', () => {
     input.disabled = true;
     document.getElementById('send').disabled = true;
     
+    // usa il lock centralizzato
+    setInputLocked(true);
+    
     // Mostra un messaggio di caricamento
     const loadingMessage = appendMessage('Assistente', '', true);
     
@@ -223,6 +240,7 @@ document.getElementById('send').addEventListener('click', () => {
 
 // Gestisci la pressione del tasto Invio
 document.getElementById('input').addEventListener('keypress', (e) => {
+    if (inputLocked) { e.preventDefault(); return; } // blocca se locked
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         document.getElementById('send').click();
@@ -241,7 +259,17 @@ function removeLoadingMessages() {
 window.addEventListener('message', event => {
     const message = event.data;
 
+    if (message.command === 'lockInput') {
+        setInputLocked(true);
+    }
+
+    if (message.command === 'unlockInput') {
+        setInputLocked(false);
+    }
+
     if (message.command === 'loading') {
+        setInputLocked(true); // 👉 mantieni bloccato durante operazioni lunghe
+        
         // Rimuovi eventuali messaggi di caricamento esistenti
         removeLoadingMessages();
         
@@ -351,11 +379,15 @@ window.addEventListener('message', event => {
 
 
     if (message.command === 'askConfirmation') {
+        setInputLocked(true); // 👉 blocca
+
         appendMessage('Assistente', message.text);
         showConfirmationButtons(message.options);
     }
 
     if(message.command === 'askForFollowup') {
+        setInputLocked(true); // 👉 blocca
+
         appendMessage('Assistente', message.text);
         showConfirmationButtonsFollowup(message.options);
     }
@@ -376,9 +408,7 @@ window.addEventListener('message', event => {
         // Aggiungi la risposta dell'assistente
         appendMessage('Assistente', message.text);
         
-        // Riabilita l'input
-        document.getElementById('input').disabled = false;
-        document.getElementById('send').disabled = false;
+        setInputLocked(false);
         document.getElementById('input').focus();
     } else if (message.command === 'tool_output') {
         // Rimuovi il messaggio di caricamento se presente

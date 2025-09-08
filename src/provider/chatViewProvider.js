@@ -58,6 +58,7 @@ export class ChatViewProvider {
       if (message.command === 'ask') {
         try {
             if (this.waitingForContinuation) {
+              webview.postMessage({ command: 'unlockInput' }); // sblocca
               const response = message.text.toLowerCase();
               if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
                 this.waitingForContinuation = false;
@@ -88,10 +89,9 @@ export class ChatViewProvider {
 
                 // Ciclo di attesa asincrono: controlla ogni secondo se il profilo è stato completato
                 while (!user_mental_state) {
-                  await new Promise(res => setTimeout(res, 1000));
+                  await new Promise(res => setTimeout(res, 15000));
                   user_mental_state = await getToMProfile(this.context);
                 }
-                // (Opzionale) Rimuovi il messaggio di caricamento dalla chat qui, se vuoi
                 webview.postMessage({ command: 'status', text: '✅ Profilo utente caricato, puoi continuare!' });
               }
               console.log("Profilo utente caricato ok:");
@@ -130,6 +130,7 @@ export class ChatViewProvider {
       if (message.command === 'askFollowUp') {
         try {
           if (this.waitingForContinuation) {
+              webview.postMessage({ command: 'unlockInput' }); // sblocca
               const response = message.text.toLowerCase();
               if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
                 console.log("Sono qui dentro nel si, teoricamente mando avanti l\'esecuzione cosi com\'è")
@@ -385,6 +386,7 @@ async function handleAgentResult(result, webview, continueCallback) {
 
   if (result.awaiting_improvement_confirmation) {
     this.waitingForContinuation = true;
+    webview.postMessage({ command: 'lockInput' }); // blocca subito
     webview.postMessage({
       command: 'askForFollowup',
       text: 'Vuoi migliorare il codice?',
@@ -420,6 +422,7 @@ async function handleAgentResult(result, webview, continueCallback) {
     if(msg?.tool_calls?.length > 0 && msg && result.tool_confidence < 0.7) {
       const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
       const toolMessage = `Non sono abbastanza sicuro della tua richiesta, ho bisogno di chiamare il tool: ${toolName}\n`;
+      webview.postMessage({ command: 'lockInput' }); // blocca subito
       webview.postMessage({
         command: 'askConfirmation',
         text: toolMessage + 

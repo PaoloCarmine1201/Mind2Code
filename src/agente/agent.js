@@ -455,7 +455,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
     }
     
-    console.log("awaiting Improvement Confirmation: ", awaitingImprovementConfirmation);
+    //console.log("awaiting Improvement Confirmation: ", awaitingImprovementConfirmation);
     return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp, improved_code: improvedCode, awaiting_improvement_confirmation: awaitingImprovementConfirmation, filename: fileName };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);

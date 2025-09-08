@@ -133,7 +133,6 @@ export class ChatViewProvider {
               webview.postMessage({ command: 'unlockInput' }); // sblocca
               const response = message.text.toLowerCase();
               if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
-                console.log("Sono qui dentro nel si, teoricamente mando avanti l\'esecuzione cosi com\'è")
                 this.waitingForContinuation = false;
                 
                 // Aggiungi messaggio di caricamento
@@ -223,7 +222,6 @@ export class ChatViewProvider {
                   text: 'Miglioramento non implementato. Procedo a salvare il codice finale, dopo puoi iniziare una nuova richiesta' 
                 });
                 webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
-                console.log("Sono qui dentro nel no, non voglio implementare il miglioramento")
                 {
                   /*
                   prendo gli stessi input di prima ma aggiungo che non voglio implementare il codice, 

@@ -1,20 +1,21 @@
 // @ts-nocheck
 import * as vscode from 'vscode';
 import { promises as fs } from 'fs';
+import { getGithubToken } from './configureMind2CodeCommand.js';
 import path from 'path';
 import dotenv from 'dotenv';
-
+/*
 dotenv.config();
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 if(!GITHUB_TOKEN){
     vscode.window.showErrorMessage('GITHUB_TOKEN non è definito. Assicurati di averlo impostato nel file .env.');
 }
-
 const headers = {
-    'Authorization': `Bearer ${GITHUB_TOKEN}`,
-    'Accept': 'application/vnd.github.v3+json'
+  'Authorization': `Bearer ${GITHUB_TOKEN}`,
+  'Accept': 'application/vnd.github.v3+json'
 }
+*/
 
 /**
  * Estrae owner e repo GitHub dal file .git/config del workspace
@@ -53,9 +54,10 @@ async function extractRepoInfo(workspaceFolder , context){
  * Analizza il contenuto di un file di configurazione per determinare il framework
  * @param {string} filePath - Percorso del file da analizzare
  * @param {string} fileName - Nome del file
+ * @param {object} headers - Headers per la richiesta HTTP
  * @returns {Promise<string>} - Framework rilevato
  */
-async function analyzeConfigFile(filePath, fileName) {
+async function analyzeConfigFile(filePath, fileName, headers) {
   try {
     const content = await fs.readFile(filePath, 'utf8');
     
@@ -111,7 +113,7 @@ async function analyzeConfigFile(filePath, fileName) {
   }
 }
 
-async function determineFramework(workspaceFolder, contents) {
+async function determineFramework(workspaceFolder, contents, headers) {
     const configFilesFound = CONFIG_FILES.filter(name => 
       contents.some(file => file.name.toLowerCase() === name.toLowerCase())
     );
@@ -137,7 +139,7 @@ async function determineFramework(workspaceFolder, contents) {
           filePath = path.join(workspaceFolder, fileName);
         }
         
-        const framework = await analyzeConfigFile(filePath, fileName);
+        const framework = await analyzeConfigFile(filePath, fileName, headers);
         if (framework && framework !== 'Unknown') {
           frameworks.push(framework);
         }
@@ -193,7 +195,7 @@ function detectNamingStyle(filenameWithoutExt) {
 /**
  * Estrae esempi significativi e analizza stile + linguaggio
  */
-async function extractNamingExamples(owner, repo, preloadedData = null, pathPrefix = '', accumulator = {}, maxFiles = 50, currentCount = 0) {
+async function extractNamingExamples(owner, repo, headers, preloadedData = null, pathPrefix = '', accumulator = {}, maxFiles = 50, currentCount = 0) {
   if (currentCount >= maxFiles) return accumulator;
   
   let data;
@@ -217,7 +219,7 @@ async function extractNamingExamples(owner, repo, preloadedData = null, pathPref
     if (item.type === 'dir') {
       if (!IGNORED_DIRS.includes(lower)) {
         const subPath = pathPrefix ? `${pathPrefix}/${name}` : name;
-        await extractNamingExamples(owner, repo, null, subPath, accumulator, maxFiles, currentCount);
+        await extractNamingExamples(owner, repo, headers, null, subPath, accumulator, maxFiles, currentCount);
         currentCount = Object.values(accumulator).flat().length;
       }
     } else if (item.type === 'file') {
@@ -251,6 +253,20 @@ export async function createGithubContext(workspaceFolder, context) {
   }, async (progress) => {
       progress.report({ increment: 0, message: "Inizio analisi repository..." });
       
+      const githubToken = await getGithubToken(context); // Ottieni il token dal globalState
+
+      if (!githubToken) {
+          vscode.window.showErrorMessage('GitHub Token non configurato. Si prega di configurare Mind2Code.');
+          return null; // Esci se non c'è il token
+      }
+
+      const headers = {
+          'Authorization': `Bearer ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+      };
+
+
+
       const result = await extractRepoInfo(workspaceFolder, context);
       progress.report({ increment: 20, message: "Informazioni repository estratte" });
       
@@ -272,10 +288,10 @@ export async function createGithubContext(workspaceFolder, context) {
       progress.report({ increment: 20, message: "Identificazione framework..." });
       const fileNames = contents.map(f => f.name.toLowerCase());
       
-      const framework = await determineFramework(workspaceFolder, contents);
+      const framework = await determineFramework(workspaceFolder, contents, headers);
       
       progress.report({ increment: 15, message: "Analisi convenzioni di naming..." });
-      const namingExample = await extractNamingExamples(owner, repo, contents, '', {}, 30); // Limita a 30 file      
+      const namingExample = await extractNamingExamples(owner, repo, headers, contents, '', {}, 30); // Limita a 30 file      
       progress.report({ increment: 15, message: "Finalizzazione..." });
       
       const repoProfile = {
@@ -294,17 +310,14 @@ export async function createGithubContext(workspaceFolder, context) {
 }
 
 export async function getGithubContext(workspaceFolder, context){
-    console.log("Recupero del profilo della repository in corso...");
     const owner = context.globalState.get('githubOwner');
     const repo = context.globalState.get('githubRepo');
     
     if (owner && repo) {
-        console.log(`Owner get: ${owner}, Repo get: ${repo}`);
+        //console.log(`Owner get: ${owner}, Repo get: ${repo}`);
         const repoContext = context.globalState.get('repoContext');
         if (repoContext) {
             return repoContext;
-        } else {
-            console.log("Nessun profilo della repository trovato nel context.");
         }
         return repoContext;
     } else {

@@ -57,6 +57,21 @@
         "command": "Mind2Code.clearToMProfile",
         "title": "Clear ToM Profile",
         "category": "Mind2Code"
+      },
+      {
+        "command": "Mind2Code.configureMind2Code",
+        "title": "Configure Mind2Code",
+        "category": "Mind2Code"
+      },
+      {
+        "command": "Mind2Code.restartConfiguration",
+        "title": "Restart Configuration",
+        "category": "Mind2Code"
+      },
+      {
+        "command": "Mind2Code.getConfigurationStatus",
+        "title": "Get Configuration Status",
+        "category": "Mind2Code"
       }
     ],
     "menus": {

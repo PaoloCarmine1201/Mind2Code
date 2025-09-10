@@ -6,9 +6,11 @@ import * as vscode from 'vscode';
  * per adattare il codice generato alle sue competenze.
  */
 export async function StartTomQuiz(context) {
+  return new Promise(async (resolve) => {
     const userProfile = await getToMProfile(context);
     if (userProfile) {
         vscode.window.showInformationMessage('Profilo utente già creato.');
+        resolve(true);
         return;
     }
 
@@ -39,6 +41,7 @@ export async function StartTomQuiz(context) {
             } else if (message.command === "quizComplete") {
                 vscode.window.showInformationMessage('Profilo utente salvato con successo!');
                 panel.dispose(); // Chiude il pannello dopo il salvataggio
+                resolve(true);
             }
         },
         undefined,
@@ -49,10 +52,15 @@ export async function StartTomQuiz(context) {
       const userProfile = await getToMProfile(context);
       if (!userProfile || userProfile.length < 7) {
           vscode.window.showWarningMessage('Devi completare il quiz per continuare.');
-          StartTomQuiz(context); // Riapre il quiz
+          resolve(false)
+          //c'era il restart del quiz
+      } else {
+        resolve(true);
       }
     });
+  });
 }
+
 function getHtml(webview, context, styleUri) {
     return `
       <!DOCTYPE html>
@@ -240,13 +248,15 @@ async function saveAnswer(context, id, question, answer) {
 /**
  * Recupera il profilo utente dal contesto dell'estensione
  */
-export async function getToMProfile(context) {
+export async function getToMProfile(context, suppressWarning = false) {
     const userProfile = await context.globalState.get('tomProfile');
     //Trasformare userProfile in un oggetto JSON
     //console.log("Profilo utente trovato: " + JSON.stringify(userProfile));
 
     if ((!userProfile || userProfile.length === 0) || userProfile.length < 7) {
-      vscode.window.showWarningMessage('Profilo utente non trovato oppure incompleto.\n Esegui prima il quiz per configurare o completare il tuo profilo.');
+      if (!suppressWarning) {
+        vscode.window.showWarningMessage('Profilo utente non trovato oppure incompleto.\n Esegui prima il quiz per configurare o completare il tuo profilo.');
+      }
       return;
     }
     

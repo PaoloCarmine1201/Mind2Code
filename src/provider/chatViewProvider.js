@@ -42,7 +42,7 @@ export class ChatViewProvider {
 
     let repo_context = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);
     if (!repo_context) {
-      vscode.window.showErrorMessage('Nessun profilo della repository trovato. Creazione in corso...');
+      vscode.window.showWarningMessage('Nessun profilo della repository trovato. Creazione in corso...');
       repo_context = createGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);    
     }
 
@@ -94,7 +94,7 @@ export class ChatViewProvider {
                 }
                 webview.postMessage({ command: 'status', text: '✅ Profilo utente caricato, puoi continuare!' });
               }
-              console.log("Profilo utente caricato ok:");
+              console.log("Inizio esecuzione");
               const inputs = {
                 is_requirement: undefined,
                 messages: [new HumanMessage(message.text)],

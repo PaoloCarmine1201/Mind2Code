@@ -86,8 +86,14 @@ const refine_requirement = tool(async (input) => {
         - AC #2: ...
         - AC #n: ...
         
-        **IMPORTANT**
-        Adapt the tone and structure using the GitHub repository context and user profile.
+        **IMPORTANT — PERSONALIZATION**
+        Use BOTH the GitHub repository context and the user's cognitive profile to adapt **every aspect** of your output to the user's mental model:
+        - Match the user's **experience level** and **preferred learning style** (e.g., step-by-step with comments for beginners; concise, idiomatic code for experts).
+        - Align **tone**, **terminology depth**, and **code complexity** to the profile.
+        - Follow the repo’s **languages**, **frameworks**, **architecture patterns**, and **naming conventions**.
+        - When trade-offs arise, the **user’s preferences and mental model override** generic best practices.
+        If any assumption is needed, **state it in one brief sentence tailored to the user**, then proceed.
+
 
         Only return a JSON object — no extra explanation or comments.
 
@@ -275,8 +281,13 @@ const generate_code = tool(async (input) => {
                 IMPORTANT: Carefully consider all the acceptance criteria.
                 ${refineReq.acceptance_criteria.map(ac => `- ${ac}`).join("\n")}
 
-                IMPORTANT: Carefully consider the following user profile when generating the code. 
-                Adapt the code style, complexity, comments, and structure to match the user's preferences and experience level.
+                **IMPORTANT — PERSONALIZATION**
+                When generating code, use the user's cognitive profile/mental state to adapt every aspect of the output to the user's mental model:
+                - Match the user's experience level and preferred learning style (e.g., step-by-step with comments for beginners; concise, idiomatic code for experts).
+                - Tune code complexity, abstraction, naming, and comment density accordingly.
+                - Align tone and terminology depth to the profile.
+                - On trade-offs, the user’s preferences and mental model override generic best practices.
+                If any assumption is needed, state it in one brief, user-tailored sentence, then proceed.
 
                 USER PROFILE:
                 ${input.user_profile}
@@ -379,6 +390,8 @@ const implement_improvement = tool(async (input) => {
   ]);
 
   const formattedCode = `\`\`\`\n${response.improved_code}\n\`\`\``;
+
+  console.log("Stampo codice migliorato per feedback: ", formattedCode);
 
   return formattedCode;
 }, {

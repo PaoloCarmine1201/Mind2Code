@@ -456,7 +456,6 @@ window.addEventListener('message', event => {
             text = "Codice salvato con successo! Qui sulla tua destra puoi vedere il file generato.";
             appendMessage('Tool', text);
         } else if (toolName === 'refine_requirement') {
-            console.log("Sono entrato nel fantastico IF")
             try {
                 // 1. Parsing del risultato JSON interno
                 const outer = JSON.parse(text); // ora outer.requirement è una stringa JSON

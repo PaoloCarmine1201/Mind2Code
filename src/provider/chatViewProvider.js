@@ -42,7 +42,6 @@ export class ChatViewProvider {
 
     let repo_context = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);
     if (!repo_context) {
-      vscode.window.showWarningMessage('Nessun profilo della repository trovato. Creazione in corso...');
       repo_context = createGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);    
     }
 

@@ -6,7 +6,7 @@ import { resetAgent } from './src/agente/agent.js';
 import { createGithubContext, getGithubContext, clearGithubContext } from './src/commands/githubContextCommand.js';
 import { StartTomQuiz, getToMProfile, clearToMProfile } from './src/commands/TheoryOfMindCommand.js';
 import { configureMind2Code, printConfigurationStatus, getApiKey, getModel, flushConfiguration, getGithubToken } from './src/commands/configureMind2CodeCommand.js';
-import { initializeLlm } from './src/agente/agentModel.js';
+import { initializeLlm } from './src/agente/AgentModel.js';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed

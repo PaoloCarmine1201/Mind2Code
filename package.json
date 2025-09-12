@@ -105,7 +105,16 @@
   "scripts": {
     "lint": "eslint .",
     "pretest": "npm run lint",
-    "test": "vscode-test"
+    "test": "vscode-test",
+
+    "dep:svg:cluster": "node scripts/gen-dep-graph.mjs | dot -Tsvg -o docs/dependencies.svg",
+    "dep:png:cluster": "node scripts/gen-dep-graph.mjs | dot -Tpng -o docs/dependencies.png",
+
+    "dep:png": "madge --extensions js --exclude '(node_modules|dist|build|\\.test\\.|\\.spec\\.)' --image docs/dependencies.png src",
+  "dep:svg": "madge --extensions js --exclude '(node_modules|dist|build|\\.test\\.|\\.spec\\.)' --dot src | dot -Tsvg -Grankdir=LR -o docs/dependencies.svg",
+  "dep:circles": "madge --extensions js --exclude '(node_modules|dist|build)' --circular src",
+  "dep:orphans": "madge --extensions js --exclude '(node_modules|dist|build)' --orphans src",
+  "dep:summary": "madge --extensions js --exclude '(node_modules|dist|build)' --summary src"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -113,7 +122,9 @@
     "@types/vscode": "^1.99.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
-    "eslint": "^9.23.0"
+    "eslint": "^9.23.0",
+    "graphviz": "^0.0.9",
+    "madge": "^8.0.0"
   },
   "dependencies": {
     "@dqbd/tiktoken": "^1.0.21",

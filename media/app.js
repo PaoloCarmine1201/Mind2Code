@@ -323,7 +323,7 @@ window.addEventListener('message', event => {
         const text = `
                 📦 Repository **${ctx.repo}** di ${ctx.owner}
 
-                • Linguaggi: ${ctx.languages.join(', ')}
+                • Linguaggio: ${ctx.languages}
                 • Framework: ${ctx.framework.join(', ')}
                 • Configurazione: ${ctx.configFiles.join(', ')}
                 • Naming Style: ${namingStyle}

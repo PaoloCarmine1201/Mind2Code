@@ -20,7 +20,7 @@ export class ChatViewProvider {
       generated_code: false,
       proposed_followUp: false,
       improved_code: false
-    }; //flag per continuare la conversazione
+    };
   }
 
   async resolveWebviewView(webviewView) {
@@ -30,7 +30,7 @@ export class ChatViewProvider {
     webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')],
-      retainContextWhenHidden: true  // Mantiene il contesto della webview quando è nascosta
+      retainContextWhenHidden: true
     };
 
     const scriptUri = webview.asWebviewUri(
@@ -51,7 +51,6 @@ export class ChatViewProvider {
       command: 'repoContext',
       text: repo_context
     });
-    //console.log("Profilo della repository trovato:", JSON.stringify(repo_context, null, 2));
 
     webview.onDidReceiveMessage(async message => {
       if (message.command === 'ask') {
@@ -62,10 +61,7 @@ export class ChatViewProvider {
               if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
                 this.waitingForContinuation = false;
                 
-                // Aggiungi messaggio di caricamento
                 webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
-                //TODO: dovrei andare a creare qua i nuovi input dell'utente dicendo che l'utente ha accetta di implementare il miglioramento
-                //ma se creo nuovi input, vado a creare una conversazione da capo dell'agente perchè c'è reset agent, devo capire come fare
                 const result = await runAgentForExtention(null, webview);
                 await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
               } else {
@@ -86,7 +82,6 @@ export class ChatViewProvider {
                 vscode.window.showWarningMessage('Devi completare il profilo utente prima di usare la chat.');
                 await StartTomQuiz(this.context);
 
-                // Ciclo di attesa asincrono: controlla ogni secondo se il profilo è stato completato
                 while (!user_mental_state) {
                   await new Promise(res => setTimeout(res, 15000));
                   user_mental_state = await getToMProfile(this.context);
@@ -104,7 +99,7 @@ export class ChatViewProvider {
                 generated_code: undefined,
                 filename: undefined,
                 code_saved: false,
-                tool_confidence: undefined, // Imposta un valore di default
+                tool_confidence: undefined,
                 proposed_followUp: undefined,
                 improvement_confirmed: true,
                 awaiting_improvement_confirmation: undefined,
@@ -120,7 +115,6 @@ export class ChatViewProvider {
             text: 'Si è verificato un errore durante l\'elaborazione della richiesta: ' + error.message 
           });
           
-          // Resetta lo stato in caso di errore
           this.conversationState = null;
           this.waitingForContinuation = false;
         }
@@ -129,7 +123,7 @@ export class ChatViewProvider {
       if (message.command === 'askFollowUp') {
         try {
           if (this.waitingForContinuation) {
-              webview.postMessage({ command: 'unlockInput' }); // sblocca
+              webview.postMessage({ command: 'unlockInput' });
               const response = message.text.toLowerCase();
               if (response === 'si' || response === 'sì' || response === 'yes' || response === 's') {
                 this.waitingForContinuation = false;
@@ -155,19 +149,16 @@ export class ChatViewProvider {
                   //Esecuzione con altro agent senza interrupt before, stessa memoria stesso thread messaggi
                   for await (const snapshot of await agentAuto.stream(stateDelta, streamConfig)) {
 
-                    // --- 1) Estrai l'ultimo messaggio e stampalo come fai altrove ---
                     const messages = snapshot?.messages ?? [];
                     const msg = messages.at ? messages.at(-1) : messages[messages.length - 1];
 
                     if (msg?.content) {
                       let toPrint = msg.content;
 
-                      // prova il parse JSON se è stringa
                       if (typeof toPrint === "string") {
                         try { toPrint = JSON.parse(toPrint); } catch (_) { /* lascia com'è */ }
                       }
 
-                      // se è un oggetto con 'confidence', rimuovilo
                       if (toPrint && typeof toPrint === "object" && "confidence" in toPrint) {
                         const { confidence, ...rest } = toPrint;
                         const keys = Object.keys(rest);
@@ -203,7 +194,6 @@ export class ChatViewProvider {
 
                     if (snapshot?.code_saved) {
                       webview.postMessage({ command: 'reply', text: '✅ Codice migliorato e salvato. Puoi iniziare una nuova richiesta.' });
-                      // reset flag UI
                       this.conversationState = null;
                       this.shownMessages = { generated_code: false, proposed_followUp: false, improved_code: false };
                       break;
@@ -224,9 +214,6 @@ export class ChatViewProvider {
                 {
                   /*
                   prendo gli stessi input di prima ma aggiungo che non voglio implementare il codice, 
-                  // andando a modificare improvement_confirmed nello stato a false, 
-                  // per fare capire che non deve implementare il miglioramento ma deve direttamente salvare il codice
-                  // esecuzione automatica con agent (tempo aggiuntivo)
   
                   const result = await runAgentForExtention({
                       improvement_confirmed: false,
@@ -234,9 +221,7 @@ export class ChatViewProvider {
                     }, webview);
                   await handleAgentResult.call(this, result, webview, async () => await runAgentForExtention(null, webview));
                   
-                  console.log('typeof code:', typeof this.codeToSave);
-                  console.log('preview code:', (this.codeToSave || '').slice(0, 60));
-                  console.log('typeof filename:', typeof this.fileName, 'value:', this.fileName);*/
+                  */
                 }
                 this.waitingForContinuation = false;
 
@@ -253,7 +238,6 @@ export class ChatViewProvider {
 
               }
 
-              // Reset stato conversazione lato UI
               this.conversationState = null;
               this.shownMessages = { generated_code: false, proposed_followUp: false, improved_code: false };
 
@@ -264,7 +248,6 @@ export class ChatViewProvider {
             command: 'reply', 
             text: 'Si è verificato un errore durante l\'elaborazione della richiesta: ' + error.message 
           });
-          // Resetta lo stato in caso di errore
           this.conversationState = null;
           this.waitingForContinuation = false;
         }
@@ -291,7 +274,6 @@ export class ChatViewProvider {
     }
   }
   
-  // Metodo per pulire la chat
   clearChat() {
     if (this._view) {
       this._view.webview.postMessage({ command: 'clearChat' });
@@ -345,7 +327,6 @@ async function handleAgentResult(result, webview, continueCallback) {
     this.fileName = result.filename;
   }
 
-  // Mostra solo i messaggi che non sono stati ancora mostrati
   if (result.generated_code && !this.shownMessages.generated_code) {
     webview.postMessage({ 
       command: 'reply', 
@@ -372,7 +353,6 @@ async function handleAgentResult(result, webview, continueCallback) {
     this.shownMessages.improved_code = true;
   }
 
-  // Se non è un requisito, termina
   if (result.is_requirement === false) {
     webview.postMessage({ 
       command: 'reply', 
@@ -383,7 +363,7 @@ async function handleAgentResult(result, webview, continueCallback) {
 
   if (result.awaiting_improvement_confirmation) {
     this.waitingForContinuation = true;
-    webview.postMessage({ command: 'lockInput' }); // blocca subito
+    webview.postMessage({ command: 'lockInput' });
     webview.postMessage({
       command: 'askForFollowup',
       text: 'Vuoi migliorare il codice?',
@@ -405,13 +385,10 @@ async function handleAgentResult(result, webview, continueCallback) {
         'Effettuo automaticamente la chiamata al tool ' + toolMessage + '.'
     });
     
-    // Aggiungi messaggio di caricamento prima di continuare
     webview.postMessage({ command: 'loading', text: 'Sto pensando...' });
     
-    // Continua automaticamente
     const autoContinueResult = await continueCallback();
     
-    // Ricorsione: gestisci il nuovo risultato
     await handleAgentResult.call(this, autoContinueResult, webview, continueCallback); 
   } else {
     // Chiedi all'utente se vuole continuare
@@ -419,7 +396,7 @@ async function handleAgentResult(result, webview, continueCallback) {
     if(msg?.tool_calls?.length > 0 && msg && result.tool_confidence < 0.7) {
       const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
       const toolMessage = `Non sono abbastanza sicuro della tua richiesta, ho bisogno di chiamare il tool: ${toolName}\n`;
-      webview.postMessage({ command: 'lockInput' }); // blocca subito
+      webview.postMessage({ command: 'lockInput' });
       webview.postMessage({
         command: 'askConfirmation',
         text: toolMessage + 

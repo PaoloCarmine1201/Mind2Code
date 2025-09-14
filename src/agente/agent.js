@@ -1,15 +1,13 @@
 // @ts-nocheck
 import { HumanMessage } from '@langchain/core/messages';
 import { MemorySaver, StateGraph } from "@langchain/langgraph";
-//import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { MEDIUM_SYSTEM_PROMPT, getTokenCount } from './utils.js';
+import { MEDIUM_SYSTEM_PROMPT } from './utils.js';
 import dotenv from 'dotenv';
 import { llm_with_tools } from './AgentModel.js';
 import { AgentState } from './AgentState.js';
 import { toolNode } from './AgentTool.js';
 import { createInterface } from 'readline/promises';
 import { stdin as input, stdout as output } from 'process';
-//import * as vscode from 'vscode';
 
 dotenv.config();
 
@@ -19,9 +17,6 @@ function shouldContinue(state) {
     const messages = state.messages;
     const lastMessage = messages.at(-1);
     
-	//console.log("DEBUG - lastMessage:", lastMessage);
-    
-    // Se is_requirement è già stato impostato a false in precedenza
     if (state.terminate === true || state.code_saved === true) {
         return "__end__";
     }
@@ -31,20 +26,18 @@ function shouldContinue(state) {
         return "Action";
     }
     
-    // Otherwise, we stop (reply to the user)
     return "__end__";
 }
 
 // Nodes
 async function llmCall(state) {
   if (state.terminate === true || state.is_requirement === false) {
-    return state; // Ritorna lo stato senza modifiche
+    return state;
   }
 
   const repo_context = state.repo_context || "";
   const user_mental_state = state.user_mental_state || "";
 
-  // normalizza improvement_confirmed per il prompt
   const improvementConfirmed =
     state.improvement_confirmed === undefined ? "undefined" : String(state.improvement_confirmed);
 
@@ -57,14 +50,12 @@ async function llmCall(state) {
            state.improvement_confirmed === undefined ? "undefined" : String(state.improvement_confirmed));
 
   
-  // --- NUOVO: prendi una finestra candidata più larga, poi sanifica e accorcia ---
-  const MAX_MESSAGES = 12;            // target
-  const CANDIDATE_WINDOW = 50;        // finestra ampia per non spezzare catene
+  const MAX_MESSAGES = 12;
+  const CANDIDATE_WINDOW = 50;
   const recent = (state.messages ?? []).slice(-CANDIDATE_WINDOW);
 
-  // 1) sanifica catene tool
   let validWindow = validateToolMessages(recent);
-  // 2) accorcia a MAX_MESSAGES mantenendo validità
+
   validWindow = trimToMax(validWindow, MAX_MESSAGES);
 
   const result = await llm_with_tools.invoke([
@@ -106,27 +97,23 @@ function validateToolMessages(messages) {
       const ids = m.tool_calls.map(tc => tc.id);
       const allResponded = ids.every(id => responded.has(id));
       if (allResponded) result.push(m);
-      // altrimenti scarta (evita errori 400)
     } else if (isTool) {
-      // Tieni il tool solo se il suo parent assistant è stato incluso sopra
       const parentIncluded = result.some(
         am => Array.isArray(am?.tool_calls) && am.tool_calls.some(tc => tc.id === m.tool_call_id)
       );
       if (parentIncluded) result.push(m);
     } else {
-      // user/assistant senza tool_calls
       result.push(m);
     }
   }
   return result;
 }
 
-// Accorcia la lista mantenendo la validità (taglia dall'inizio)
 function trimToMax(messages, max) {
   let cur = [...messages];
   while (cur.length > max) {
-    cur.shift();                    // rimuovi il più vecchio
-    cur = validateToolMessages(cur); // ri-sanitizza
+    cur.shift();
+    cur = validateToolMessages(cur);
   }
   return cur;
 }
@@ -176,6 +163,7 @@ async function updatedState(state) {
 		    }
 
     if (lastMessage.name === 'refine_requirement' && state.refined_requirement === undefined) {
+      console.log("Refine Requirement content: ", lastMessage.content);
       return {
               ...state,
               refined_requirement: lastMessage.content,
@@ -230,7 +218,7 @@ async function updatedState(state) {
           return {
               ...state,
               improved_code: lastMessage.content,
-              generated_code: lastMessage.content, // Aggiorniamo anche il codice generato con quello migliorato
+              generated_code: lastMessage.content,
               awaiting_improvement_confirmation: false
           };
         }      
@@ -274,7 +262,6 @@ function createAgent() {
     .addNode("llmCall", llmCall)
     .addNode("tools", toolNode)
     .addNode("updateState", updatedState)
-    // Add edges to connect nodes
     .addEdge("__start__", "llmCall")
     .addConditionalEdges(
       "llmCall",
@@ -284,26 +271,25 @@ function createAgent() {
         "__end__": "__end__",
       }
     )
-    .addEdge("tools", "updateState") // After exectuing the tool, update the state
+    .addEdge("tools", "updateState")
     .addEdge("updateState", "llmCall")
-   // After updating the state, continue the conversation
 }
 
-// 👉 factory che compila con/senza interrupt
+// factory che compila con/senza interrupt
 function compileAgent({ interrupt }) {
   return createAgent().compile({
-    checkpointer,                       // ✨ condiviso
-    interruptBefore: interrupt ? ["tools"] : [] // on/off
+    checkpointer,
+    interruptBefore: interrupt ? ["tools"] : []
   });
 }
 
-export let agentBuilder = compileAgent({ interrupt: true });   // come il tuo attuale
-export let agentAuto = compileAgent({ interrupt: false });  // no-interrupt
+export let agentBuilder = compileAgent({ interrupt: true });
+export let agentAuto = compileAgent({ interrupt: false });
 
 export function resetAgent() {
   checkpointer = new MemorySaver(); // resetta la memoria
-  agentBuilder = compileAgent({ interrupt: true });   // ✅ ricompilato
-  agentAuto    = compileAgent({ interrupt: false });  // ✅ ricompilato
+  agentBuilder = compileAgent({ interrupt: true });   // ricompilato
+  agentAuto    = compileAgent({ interrupt: false });  // ricompilato
 }
 /*
 function createImageOfGraph(state) {
@@ -317,16 +303,16 @@ function createImageOfGraph(state) {
 	// Salva il file DOT
 	const dotFilePath = "./graphState.dot";
 	writeFileSync(dotFilePath, dotString);
-	console.log(`✅ File DOT salvato in: ${dotFilePath}`);
+	console.log(`File DOT salvato in: ${dotFilePath}`);
 	
 	// Converti il file DOT in PNG usando Graphviz
 	const outputImagePath = "./agentGraph.png";
 	exec(`dot -Tpng ${dotFilePath} -o ${outputImagePath}`, (error, stdout, stderr) => {
 	  if (error) {
-		console.error(`❌ Errore nella conversione: ${error.message}`);
+		console.error(`Errore nella conversione: ${error.message}`);
 		return;
 	  }
-	  console.log(`✅ Immagine del grafo salvata in: ${outputImagePath}`);
+	  console.log(`Immagine del grafo salvata in: ${outputImagePath}`);
 	});
 }*/
 
@@ -346,7 +332,7 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   
     // Se stiamo iniziando una nuova conversazione, resetta l'agente
     if (initialInputs !== null && initialInputs.improvement_confirmed === true) {
-      resetAgent(); // reset solo quando parte una NUOVA conversazione utente
+      resetAgent();
     }
 
   const streamConfig = {
@@ -355,7 +341,6 @@ export async function runAgentForExtention(initialInputs = null, webview) {
   };
   
   try {
-    // Utilizziamo gli input iniziali o null per continuare la conversazione
     for await (const { messages, repo_context, is_requirement, refined_requirement, language, generated_code, filename, code_saved, tool_confidence, proposed_followUp, improved_code, awaiting_improvement_confirmation, improvement_confirmed } of await agentBuilder.stream(initialInputs, streamConfig)) {
       msg = messages?.[messages.length - 1];
 
@@ -372,11 +357,9 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         fileName = filename;
       }
       
-      // Aggiorna lo stato is_requirement
       if (is_requirement !== undefined) {
         isRequirement = is_requirement;
         
-        // Se non è un requisito, interrompi immediatamente
         if (isRequirement === false) {
           console.log("❌ Non è un requisito, termino l'esecuzione");
           return { codeAlreadyPrinted: false, is_requirement: false, message: msg };
@@ -399,7 +382,6 @@ export async function runAgentForExtention(initialInputs = null, webview) {
       // Gestione dei messaggi
       if (msg?.content) {
         let toPrint = msg.content;
-        // Se è una stringa JSON, prova a fare il parse
         if (typeof toPrint === "string") {
           try {
             toPrint = JSON.parse(toPrint);
@@ -409,12 +391,10 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         }
 
         if (typeof toPrint === "object" && toPrint !== null && "confidence" in toPrint) {
-          // Prendi il primo campo diverso da 'confidence'
           const keys = Object.keys(toPrint).filter(k => k !== "confidence");
           if (keys.length === 1) {
             toPrint = toPrint[keys[0]];
           } else {
-            // Se ci sono più campi oltre a confidence, creo un nuovo oggetto senza 'confidence'
             const { confidence, ...rest } = toPrint;
             toPrint = rest;
           }
@@ -422,8 +402,6 @@ export async function runAgentForExtention(initialInputs = null, webview) {
         
         // Verifica se il messaggio è una risposta di un tool
         if (msg.role === 'tool' || msg.constructor.name === 'ToolMessage') {
-          // Invia il messaggio come tool_output
-          // Usa una chiave univoca per evitare duplicati
             const toolKey = `${msg.name}:${JSON.stringify(toPrint)}`;
             if (!printedMessages.has(toolKey)) {
               if (typeof toPrint === "object" && toPrint!== null) {
@@ -433,7 +411,6 @@ export async function runAgentForExtention(initialInputs = null, webview) {
                 printedMessages.add(toolKey);
               }
         } else {
-          // Aggiungi il messaggio formattato al set e invialo alla webview solo se non è già stato stampato
           if (!printedMessages.has(toPrint)) {
             if (typeof toPrint === "object" && toPrint!== null) {
               toPrint = JSON.stringify(toPrint);
@@ -455,7 +432,6 @@ export async function runAgentForExtention(initialInputs = null, webview) {
 
     }
     
-    //console.log("awaiting Improvement Confirmation: ", awaitingImprovementConfirmation);
     return { codeAlreadyPrinted, is_requirement: isRequirement, code_saved: codeSaved, tool_confidence: toolConfidence, message: msg, generated_code: generatedCode, refined_requirement: refinedRequirement, proposed_followUp: proposedFollowUp, improved_code: improvedCode, awaiting_improvement_confirmation: awaitingImprovementConfirmation, filename: fileName };
   } catch (error) {
     console.error("Errore durante l'esecuzione dell'agente:", error);

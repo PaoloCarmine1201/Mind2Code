@@ -125,21 +125,3 @@ Always return a **valid JSON object**.
 - Every tool call must include a "confidence" field (0-1) reflecting your certainty of the call's necessity
 
 `;
-
-import { encode } from 'gpt-tokenizer';
-
-/**
- * Conta il numero di token in un testo per un dato modello
- * @param {string|object} text - Il testo o l'oggetto da contare
- * @param {string} model - Il modello da utilizzare (default: gpt-4o-mini)
- * @returns {number} - Il numero di token
- */
-export function getTokenCount(text, model = "gpt-4o-mini") {
-  // Se è un oggetto, convertilo in stringa
-  if (typeof text !== "string") {
-    text = JSON.stringify(text);
-  }
-  
-  // Conta i token utilizzando la libreria gpt-tokenizer
-  return encode(text).length;
-}

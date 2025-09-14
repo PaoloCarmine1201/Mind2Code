@@ -7,7 +7,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import * as vscode from 'vscode';
 
-//tool with confidence level of LLM
 const is_requirement = tool(async (input) => {
     console.log("IS REQUIREMENT TOOL");
 
@@ -85,20 +84,18 @@ const refine_requirement = tool(async (input) => {
         - AC #1: ...
         - AC #2: ...
         - AC #n: ...
-        
-        **IMPORTANT — PERSONALIZATION**
-        Use BOTH the GitHub repository context and the user's cognitive profile to adapt **every aspect** of your output to the user's mental model:
-        - Match the user's **experience level** and **preferred learning style** (e.g., step-by-step with comments for beginners; concise, idiomatic code for experts).
-        - Align **tone**, **terminology depth**, and **code complexity** to the profile.
-        - Follow the repo’s **languages**, **frameworks**, **architecture patterns**, and **naming conventions**.
-        - When trade-offs arise, the **user’s preferences and mental model override** generic best practices.
-        If any assumption is needed, **state it in one brief sentence tailored to the user**, then proceed.
 
+        **IMPORTANT — PERSONALIZATION**
+        Use the GitHub repository context to infer technical aspects such as the **MOST USED PROGRAMMING LANGUAGES**, **framework structure**, **architectural patterns**, and **naming conventions**. Integrate this information with the user's cognitive profile to adapt the output's style, experience level, and learning preferences:
+        - From the user's cognitive profile, adapt the **experience level** and **preferred learning style** (e.g., step-by-step with comments for beginners; concise, idiomatic code for experts).
+        - From the user's cognitive profile, align the **tone**, **terminology depth**, and **code complexity** to their profile.
+        - From the GitHub repository context, follow the repository's ** first most used programming languages**, **frameworks**, **architectural patterns**, and **naming conventions**.
+        If any assumption is needed, **state it in one brief sentence tailored to the user**, then proceed.
 
         Only return a JSON object — no extra explanation or comments.
 
         OBBLIGATORIO
-        La risposta deve essere SEMPRE in italiano
+        La risposta deve essere **SEMPRE** in italiano
 
         ---
 
@@ -129,7 +126,6 @@ const refine_requirement = tool(async (input) => {
 })
 
 //create a tool that classify language of the requirement
-//tool with confidence level of LLM
 const classify_language = tool(async (input) => {
   console.log("CLASSIFY LANGUAGE TOOL");
 
@@ -147,8 +143,8 @@ const classify_language = tool(async (input) => {
 
         **FOLLOW THIS PRIORITY ORDER**:
         1. FIRST, analyze the input requirement for explicit language mentions
-        2. SECOND, If no language is specified, check the GitHub repository context
-        3. THIRD, Then check the user's profile
+        2. SECOND, If no language in input is specified, CHECK OBBLIGATORY the languages defined in the working repository context AND USE THE FIRST ONE
+        3. IN THE LAST, Then check the user's profile
 
         Respond ONLY with a JSON object like: { "language": "..." }
 
@@ -193,7 +189,6 @@ const classify_language = tool(async (input) => {
 })
 
 //create a tool that extracts a filename from the requirement
-//tool with confidence level of LLM
 const extract_filename = tool(async (input) => {
   console.log("EXTRACT FILENAME TOOL");
   
@@ -261,7 +256,6 @@ const extract_filename = tool(async (input) => {
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
 
-    
     const refineReq = JSON.parse(input.requirement)
 
     const response = await llm.withStructuredOutput(

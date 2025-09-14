@@ -4,18 +4,6 @@ import { promises as fs } from 'fs';
 import { getGithubToken } from './configureMind2CodeCommand.js';
 import path from 'path';
 import dotenv from 'dotenv';
-/*
-dotenv.config();
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-
-if(!GITHUB_TOKEN){
-    vscode.window.showErrorMessage('GITHUB_TOKEN non è definito. Assicurati di averlo impostato nel file .env.');
-}
-const headers = {
-  'Authorization': `Bearer ${GITHUB_TOKEN}`,
-  'Accept': 'application/vnd.github.v3+json'
-}
-*/
 
 /**
  * Estrae owner e repo GitHub dal file .git/config del workspace
@@ -26,9 +14,7 @@ async function extractRepoInfo(workspaceFolder , context){
     try {
         const configPath = path.join(workspaceFolder, '.git', 'config');
 
-        // Leggi il contenuto del file
         const configContent = await fs.readFile(configPath, 'utf8');
-        // Cerca l'URL del repository remoto
         const urlMatch = configContent.match(/\[remote "origin"\][\s\S]*?url = .*?github\.com[:\/]([^/]+)\/([^.\s]+)(\.git)?/i);
         
         if (urlMatch && urlMatch.length >= 3) {
@@ -61,9 +47,7 @@ async function analyzeConfigFile(filePath, fileName, headers) {
   try {
     const content = await fs.readFile(filePath, 'utf8');
     
-    // Analisi basata sul tipo di file
     if (fileName === 'requirements.txt') {
-      // Cerca framework Python
       if (content.includes('flask')) {
         return 'Flask';
       } else if (content.includes('django')) {
@@ -72,7 +56,6 @@ async function analyzeConfigFile(filePath, fileName, headers) {
         return 'Python';
       }
     } else if (fileName === 'package.json') {
-      // Analisi package.json per framework JavaScript
       const packageJson = JSON.parse(content);
       const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
       
@@ -88,14 +71,12 @@ async function analyzeConfigFile(filePath, fileName, headers) {
         return 'Node.js';
       }
     } else if (fileName === 'pom.xml' || fileName === 'build.gradle') {
-      // Analisi file Java
       if (content.includes('spring-boot') || content.includes('org.springframework.boot')) {
         return 'Spring Boot';
       } else {
         return 'Java';
       }
     } else if (fileName === 'go.mod') {
-      // Analisi Go modules
       if (content.includes('github.com/gin-gonic/gin')) {
         return 'Gin';
       } else if (content.includes('github.com/gorilla/mux')) {
@@ -105,7 +86,6 @@ async function analyzeConfigFile(filePath, fileName, headers) {
       }
     }
     
-    // Default: restituisci il valore predefinito dal frameworkHints
     return frameworkHints[fileName] || 'Unknown';
   } catch (error) {
     console.error(`Errore durante l'analisi del file ${fileName}:`, error);
@@ -125,14 +105,12 @@ async function determineFramework(workspaceFolder, contents, headers) {
     for (const fileName of configFilesFound) {
       const fileObj = contents.find(file => file.name.toLowerCase() === fileName.toLowerCase());
       if (fileObj) {
-        // Scarica il contenuto del file se è un file remoto
         let filePath;
         let content;
         
         if (fileObj.download_url) {
           const response = await fetch(fileObj.download_url, { headers });
           content = await response.text();
-          // Crea un file temporaneo o usa direttamente il contenuto
           filePath = path.join(workspaceFolder, fileName);
           await fs.writeFile(filePath, content, 'utf8');
         } else {
@@ -236,7 +214,7 @@ async function extractNamingExamples(owner, repo, headers, preloadedData = null,
             }
           ];
           currentCount++;
-          break; // Passa al file successivo dopo aver trovato un match
+          break;
         }
       }
     }
@@ -253,7 +231,7 @@ export async function createGithubContext(workspaceFolder, context) {
   }, async (progress) => {
       progress.report({ increment: 0, message: "Inizio analisi repository..." });
       
-      const githubToken = await getGithubToken(context); // Ottieni il token dal globalState
+      const githubToken = await getGithubToken(context);
 
       if (!githubToken) {
           vscode.window.showErrorMessage('GitHub Token non configurato. Si prega di configurare Mind2Code.');
@@ -297,14 +275,13 @@ export async function createGithubContext(workspaceFolder, context) {
       const repoProfile = {
           owner: owner,
           repo: repo,
-          languages: Object.entries(langData).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([lang]) => lang.toLowerCase()),
+          languages: Object.entries(langData).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(),
           framework: framework,
           namingExamples: namingExample,
           configFiles: CONFIG_FILES.filter(name => fileNames.includes(name))
       };
 
       context.globalState.update('repoContext', repoProfile);
-      //console.log("Profilo della repository creato:", JSON.stringify(repoProfile, null, 2));
       return repoProfile;
   });
 }
@@ -314,7 +291,6 @@ export async function getGithubContext(workspaceFolder, context){
     const repo = context.globalState.get('githubRepo');
     
     if (owner && repo) {
-        //console.log(`Owner get: ${owner}, Repo get: ${repo}`);
         const repoContext = context.globalState.get('repoContext');
         if (repoContext) {
             return repoContext;

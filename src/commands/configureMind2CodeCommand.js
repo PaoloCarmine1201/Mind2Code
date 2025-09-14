@@ -1,14 +1,11 @@
 import * as vscode from 'vscode';
 
-/**
- * Comando per configurare la chiave API e il modello dell'agente.
- */
 export async function configureMind2Code(context) {
     return new Promise((resolve) => {
         const panel = vscode.window.createWebviewPanel(
             'Mind2CodeConfiguration',
             'Configura Mind2Code',
-            vscode.ViewColumn.Two, // Apri il pannello in una nuova colonna
+            vscode.ViewColumn.Two,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true
@@ -28,10 +25,10 @@ export async function configureMind2Code(context) {
                         githubToken: githubToken || ''
                     };
 
-                    await context.globalState.update('Mind2CodeConfiguration', answers); // Salva l'oggetto completo
+                    await context.globalState.update('Mind2CodeConfiguration', answers);
 
                     vscode.window.showInformationMessage('Configurazione salvata con successo!');
-                    panel.dispose(); // Chiudi il pannello dopo il salvataggio
+                    panel.dispose();
                     resolve(true);
                 }
             },
@@ -40,7 +37,6 @@ export async function configureMind2Code(context) {
         );
 
         panel.onDidDispose(() => {
-            // Se il pannello viene chiuso senza salvare, risolvi la Promise con false
             resolve(false);
         }, null, context.subscriptions);
     });

@@ -385,8 +385,6 @@ const implement_improvement = tool(async (input) => {
 
   const formattedCode = `\`\`\`\n${response.improved_code}\n\`\`\``;
 
-  console.log("Stampo codice migliorato per feedback: ", formattedCode);
-
   return formattedCode;
 }, {
   name: 'implement_improvement',
@@ -411,7 +409,6 @@ export const save_code = tool(async (input) => {
   if (match) {
     // Estrai solo il contenuto tra i backticks
     code = match[1];
-    console.log("Backticks rimossi dal codice");
   }
 
   if (!filename.startsWith("out/")) {

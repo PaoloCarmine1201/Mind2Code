@@ -163,7 +163,6 @@ async function updatedState(state) {
 		    }
 
     if (lastMessage.name === 'refine_requirement' && state.refined_requirement === undefined) {
-      console.log("Refine Requirement content: ", lastMessage.content);
       return {
               ...state,
               refined_requirement: lastMessage.content,

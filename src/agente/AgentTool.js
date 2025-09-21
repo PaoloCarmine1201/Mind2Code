@@ -140,11 +140,16 @@ const classify_language = tool(async (input) => {
     {
       role: "system",
       content: `You are an assistant that determines the most appropriate programming language to implement a software requirement.
+        You must infer if the requirement is for a 'frontend' or 'backend' component.
+        Based on this inference, you will prioritize the language selection.
 
         **FOLLOW THIS PRIORITY ORDER**:
-        1. FIRST, analyze the input requirement for explicit language mentions
-        2. SECOND, If no language in input is specified, CHECK OBBLIGATORY the languages defined in the working repository context AND USE THE FIRST ONE
-        3. IN THE LAST, Then check the user's profile
+        1. FIRST, analyze the input requirement for explicit language mentions.
+        2. SECOND, if no language is explicitly specified, infer if the requirement is 'frontend' or 'backend'.
+           - If 'frontend', check the languages defined in the working repository context that are typically used for frontend development (e.g., JavaScript, TypeScript).
+           - If 'backend', check the languages defined in the working repository context that are typically used for backend development (e.g., Python, Java, Go, Node.js).
+           - USE THE FIRST RELEVANT LANGUAGE FOUND IN THE GITHUB CONTEXT.
+        3. IN THE LAST, Then check the user's profile for preferred languages.
 
         Respond ONLY with a JSON object like: { "language": "..." }
 
@@ -160,7 +165,7 @@ const classify_language = tool(async (input) => {
   // Verifica che sia un linguaggio valido
   const validLanguages = [
     "python", "javascript", "java", "cpp", "go",
-    "typescript", "ruby", "php", "csharp", "c"
+    "typescript", "ruby", "php", "csharp", "c", "dart"
   ];
 
   const normalized = (() => {
@@ -256,7 +261,13 @@ const extract_filename = tool(async (input) => {
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
 
-    const refineReq = JSON.parse(input.requirement)
+    let refineReq;
+      try {
+        refineReq = JSON.parse(input.requirement);
+      } catch (e) {
+        // Se non è un JSON valido, includi comunque il testo originale
+        refineReq = { acceptance_criteria: [], original_requirement: input.requirement };
+      }
 
     const response = await llm.withStructuredOutput(
       z.object({
@@ -272,16 +283,27 @@ const generate_code = tool(async (input) => {
 
                 Input to analyze: "${input.requirement}"
 
-                IMPORTANT: Carefully consider all the acceptance criteria.
-                ${refineReq.acceptance_criteria.map(ac => `- ${ac}`).join("\n")}
+                **IMPORTANT**: Carefully consider all the acceptance criteria.
+                ${Array.isArray(refineReq.acceptance_criteria) && refineReq.acceptance_criteria.length > 0
+                  ? refineReq.acceptance_criteria.map(ac => `- ${ac}`).join("\n")
+                  : (refineReq.original_requirement ? `- ${refineReq.original_requirement}` : "")}
+
+                GENERATE THE CODE THAT SATISFIES ALL THE **ACCEPTANCE CRITERIA**.
 
                 **IMPORTANT — PERSONALIZATION**
                 When generating code, use the user's cognitive profile/mental state to adapt every aspect of the output to the user's mental model:
                 - Match the user's experience level and preferred learning style (e.g., step-by-step with comments for beginners; concise, idiomatic code for experts).
-                - Tune code complexity, abstraction, naming, and comment density accordingly.
-                - Align tone and terminology depth to the profile.
+                - Tune code complexity, abstraction, naming, and comment density accordingly. Directly apply the mental profile's preferences for code complexity, abstraction level, and comment density (e.g., if the profile indicates "heavily commented," include many comments).
+                - Align the tone and terminology depth exactly as specified in the profile.
                 - On trade-offs, the user’s preferences and mental model override generic best practices.
                 If any assumption is needed, state it in one brief, user-tailored sentence, then proceed.
+
+                **IMPORTANT — COMMENTING & DOCS POLICY**
+                Apply comments/docs strictly from the user profile:
+                - Experience: beginner → step-by-step inline comments for each non-trivial line; intermediate → block-level comments + brief function headers; advanced → sparse intent comments only; expert → comments only where non-obvious.
+                - Code style: commented → many inline comments per block; clean → light comments, prefer descriptive names; concise → avoid comments unless clarifying intent; documented → full API docs for every public class/function (params/returns), minimal inline.
+                - Learning preference: examples → include a tiny usage example with brief guiding comments; documentation → richer API docs (params/returns/examples) over inline; tutorials → prefix main blocks with "Step 1/2/..." comments; exploration → minimal comments plus TODO/NOTE hints for experiments.
+                - Language-specific docs: JS/TS → JSDoc \`/** ... */\`; Python → docstrings """ ... """; Java → Javadoc \`/** ... */\`; others → idiomatic header/function comments.
 
                 USER PROFILE:
                 ${input.user_profile}
@@ -376,6 +398,9 @@ const implement_improvement = tool(async (input) => {
         Programming Language: ${input.language}
         
         Your task is to implement the improvements suggested in the follow-up.
+
+        Maintain the original code's style exactly—formatting/indentation, naming conventions, comment/doc style (JSDoc/docstrings/Javadoc), and architectural patterns.
+        When adding or modifying code, keep all existing comments and structure intact, and write new code with the same style and equivalent comments/docs; do not reformat or introduce a different style anywhere.
         
         Return ONLY a JSON object like: { "improved_code": "..." }
         The improved_code should be the complete code with the improvements implemented, not just the changes.

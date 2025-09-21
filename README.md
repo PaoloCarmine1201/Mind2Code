@@ -36,8 +36,9 @@ The extension includes an intelligent agent capable of:
 - **📦 Code Delivery with Context Awareness**  
   Generated code is shown in the chat and can be saved directly into the workspace, following the project's structure, naming, and technology conventions.
 
-- **🔁 Follow-Up Questioning
-  Future...
+- **🔁 Follow-Up Questioning**
+  After generating code for a given requirement, the agent proposes concrete improvements in the form of yes/no follow-up questions.
+  This ensures users can quickly decide whether to extend the implementation without dealing with vague or open-ended suggestions.
 
 
 ## 📁 Key Technologies
@@ -50,8 +51,17 @@ The extension includes an intelligent agent capable of:
 
 ## 🚀 Getting Started
 
-1. Clone this repository
-2. Add a `.env` file with your GitHub token:
-3. ...
+**1. Install the Extension**
+
+Open the VS Code command palette (`F1` or `Ctrl+Shift+P` on Windows/Linux, `Cmd+Shift+P` on macOS) and search for:
+
+>Extensions: Install from VSIX
+
+Then select the .vsix file provided in the repository.
+
+>ℹ️ The .vsix file is precompiled, so you don't need to run npm install or npm run compile.
+
+**2. Configure Mind2Code**
+...
 
 **Enjoy!**

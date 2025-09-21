@@ -6,13 +6,14 @@ import * as vscode from 'vscode';
  * per adattare il codice generato alle sue competenze.
  */
 export async function StartTomQuiz(context) {
+  return new Promise(async (resolve) => {
     const userProfile = await getToMProfile(context);
     if (userProfile) {
         vscode.window.showInformationMessage('Profilo utente già creato.');
+        resolve(true);
         return;
     }
 
-    // Crea un pannello webview sulla destra
     const panel = vscode.window.createWebviewPanel(
         'ToMProfileQuiz',
         'Creazione profilo utente',
@@ -23,7 +24,6 @@ export async function StartTomQuiz(context) {
         }
     );
 
-    // Ottieni il percorso del file CSS per lo stile
     const styleUri = panel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, 'media', 'tom.css')
     );
@@ -38,7 +38,8 @@ export async function StartTomQuiz(context) {
               await saveAnswer(context, id, question, answer);
             } else if (message.command === "quizComplete") {
                 vscode.window.showInformationMessage('Profilo utente salvato con successo!');
-                panel.dispose(); // Chiude il pannello dopo il salvataggio
+                panel.dispose();
+                resolve(true);
             }
         },
         undefined,
@@ -49,10 +50,14 @@ export async function StartTomQuiz(context) {
       const userProfile = await getToMProfile(context);
       if (!userProfile || userProfile.length < 7) {
           vscode.window.showWarningMessage('Devi completare il quiz per continuare.');
-          StartTomQuiz(context); // Riapre il quiz
+          resolve(false)
+      } else {
+        resolve(true);
       }
     });
+  });
 }
+
 function getHtml(webview, context, styleUri) {
     return `
       <!DOCTYPE html>
@@ -200,7 +205,6 @@ function getHtml(webview, context, styleUri) {
       </html>
     `;
   
-    // Helpers per generare i blocchi HTML
     function renderRadio(name, label, options) {
       return options.map(opt => `
         <label>
@@ -240,30 +244,29 @@ async function saveAnswer(context, id, question, answer) {
 /**
  * Recupera il profilo utente dal contesto dell'estensione
  */
-export async function getToMProfile(context) {
+export async function getToMProfile(context, suppressWarning = false) {
     const userProfile = await context.globalState.get('tomProfile');
-    //Trasformare userProfile in un oggetto JSON
-    //console.log("Profilo utente trovato: " + JSON.stringify(userProfile));
 
     if ((!userProfile || userProfile.length === 0) || userProfile.length < 7) {
-      vscode.window.showWarningMessage('Profilo utente non trovato oppure incompleto.\n Esegui prima il quiz per configurare o completare il tuo profilo.');
+      if (!suppressWarning) {
+        vscode.window.showWarningMessage('Profilo utente non trovato oppure incompleto.\n Esegui prima il quiz per configurare o completare il tuo profilo.');
+      }
       return;
     }
     
-    // Crea una mappa per accedere facilmente alle risposte
     const profileMap = new Map();
     userProfile.forEach(entry => {
       profileMap.set(entry.id, entry.answer);
     });
     
     const userProfileString = [
-      `- Programming experience level: ${profileMap.get("experienceLevel") || "Non specificato"}`,
-      `- Preferred programming languages: ${formatAnswer(profileMap.get("preferredLanguages"))}`,
-      `- Preferred code complexity: ${profileMap.get("codeComplexity") || "Non specificato"}`,
-      `- Frameworks the user has experience with: ${formatAnswer(profileMap.get("frameworkExperience"))}`,
-      `- Preferred coding style: ${profileMap.get("codeStyle") || "Non specificato"}`,
-      `- Knowledge level of architectural patterns: ${profileMap.get("architectureKnowledge") || "Non specificato"}`,
-      `- Preferred learning method: ${profileMap.get("learningPreference") || "Non specificato"}`
+      `- Livello di esperienza di programmazione: ${profileMap.get("experienceLevel") || "Non specificato"}`,
+      `- Linguaggi di programmazione preferiti: ${formatAnswer(profileMap.get("preferredLanguages"))}`,
+      `- Complessità del codice preferita: ${profileMap.get("codeComplexity") || "Non specificato"}`,
+      `- Framework con cui l'utente ha esperienza: ${formatAnswer(profileMap.get("frameworkExperience"))}`,
+      `- Stile di codifica preferito: ${profileMap.get("codeStyle") || "Non specificato"}`,
+      `- Livello di conoscenza dei pattern architetturali: ${profileMap.get("architectureKnowledge") || "Non specificato"}`,
+      `- Metodo di apprendimento preferito: ${profileMap.get("learningPreference") || "Non specificato"}`
       ].join("\n");
       
     function formatAnswer(answer) {
@@ -271,7 +274,6 @@ export async function getToMProfile(context) {
       return Array.isArray(answer) ? answer.join(", ") : answer;
     }
   
-    //console.log("STAMPO PROFILO " + userProfileString);
     return userProfileString;
   }
   

@@ -1,6 +1,19 @@
 // @ts-nocheck
 const vscode = acquireVsCodeApi();
 
+// --- LOCK INPUT CHAT ---
+let inputLocked = false;
+
+function setInputLocked(locked) {
+  inputLocked = locked;
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  const inputArea = document.getElementById('input-area');
+  if (inputEl) inputEl.disabled = locked;
+  if (sendBtn) sendBtn.disabled = locked;
+  if (inputArea) inputArea.classList.toggle('locked', locked);
+}
+
 // Stato della chat
 let chatMessages = [];
 
@@ -198,6 +211,7 @@ function escapeHtml(text) {
 
 // Gestisci l'invio del messaggio
 document.getElementById('send').addEventListener('click', () => {
+    if (inputLocked) return; // 👉 blocca invio se locked
     const input = document.getElementById('input');
     const text = input.value.trim();
     if (!text) return;
@@ -213,6 +227,9 @@ document.getElementById('send').addEventListener('click', () => {
     input.disabled = true;
     document.getElementById('send').disabled = true;
     
+    // usa il lock centralizzato
+    setInputLocked(true);
+    
     // Mostra un messaggio di caricamento
     const loadingMessage = appendMessage('Assistente', '', true);
     
@@ -223,6 +240,7 @@ document.getElementById('send').addEventListener('click', () => {
 
 // Gestisci la pressione del tasto Invio
 document.getElementById('input').addEventListener('keypress', (e) => {
+    if (inputLocked) { e.preventDefault(); return; } // blocca se locked
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         document.getElementById('send').click();
@@ -240,6 +258,24 @@ function removeLoadingMessages() {
 // Gestisci i messaggi dall'estensione
 window.addEventListener('message', event => {
     const message = event.data;
+
+    if (message.command === 'lockInput') {
+        setInputLocked(true);
+    }
+
+    if (message.command === 'unlockInput') {
+        setInputLocked(false);
+    }
+
+    if (message.command === 'loading') {
+        setInputLocked(true); // 👉 mantieni bloccato durante operazioni lunghe
+        
+        // Rimuovi eventuali messaggi di caricamento esistenti
+        removeLoadingMessages();
+        
+        // Aggiungi un nuovo messaggio di caricamento
+        appendMessage('Assistente', '', true);
+    }
 
     if (message.command === 'repoContext') {
         removeLoadingMessages();
@@ -287,7 +323,7 @@ window.addEventListener('message', event => {
         const text = `
                 📦 Repository **${ctx.repo}** di ${ctx.owner}
 
-                • Linguaggi: ${ctx.languages.join(', ')}
+                • Linguaggio: ${ctx.languages}
                 • Framework: ${ctx.framework.join(', ')}
                 • Configurazione: ${ctx.configFiles.join(', ')}
                 • Naming Style: ${namingStyle}
@@ -343,8 +379,17 @@ window.addEventListener('message', event => {
 
 
     if (message.command === 'askConfirmation') {
+        setInputLocked(true); // 👉 blocca
+
         appendMessage('Assistente', message.text);
         showConfirmationButtons(message.options);
+    }
+
+    if(message.command === 'askForFollowup') {
+        setInputLocked(true); // 👉 blocca
+
+        appendMessage('Assistente', message.text);
+        showConfirmationButtonsFollowup(message.options);
     }
     
     if (message.command === 'initialMessage') {
@@ -363,9 +408,7 @@ window.addEventListener('message', event => {
         // Aggiungi la risposta dell'assistente
         appendMessage('Assistente', message.text);
         
-        // Riabilita l'input
-        document.getElementById('input').disabled = false;
-        document.getElementById('send').disabled = false;
+        setInputLocked(false);
         document.getElementById('input').focus();
     } else if (message.command === 'tool_output') {
         // Rimuovi il messaggio di caricamento se presente
@@ -392,11 +435,27 @@ window.addEventListener('message', event => {
             console.log('Codice generato:', text);
             text = markdownToHtml(text);
             appendMessage('Tool', text);
+        } else if (toolName === 'propose_followup') {
+           let parsed;
+            try {
+                parsed = typeof text === "string" ? JSON.parse(text) : text;
+            } catch (e) {
+                console.error("❌ Errore nel parsing del followup:", e);
+                return;
+            }
+
+            const followupText = parsed.followup;
+            console.log("Sono in followUp:", followupText);
+
+            appendMessage("Tool", followupText);
+        } else if (toolName === 'implement_improvement') {
+            console.log('Codice migliorato:', text);
+            text = markdownToHtml(text);
+            appendMessage('Tool', text);
         } else if (toolName === 'save_code') {
             text = "Codice salvato con successo! Qui sulla tua destra puoi vedere il file generato.";
             appendMessage('Tool', text);
         } else if (toolName === 'refine_requirement') {
-            console.log("Sono entrato nel fantastico IF")
             try {
                 // 1. Parsing del risultato JSON interno
                 const outer = JSON.parse(text); // ora outer.requirement è una stringa JSON
@@ -427,6 +486,30 @@ window.addEventListener('message', event => {
             clearChat();
         }
 });
+
+// Funzione per mostrare i bottoni per le domande di followup
+function showConfirmationButtonsFollowup(options) {
+    const btnContainer = document.getElementById('confirmation-buttons');
+    btnContainer.innerHTML = '';
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.textContent = opt.label;
+        btn.className = 'confirmation-btn';
+
+        // Aggiungi un'icona in base al valore
+        if (opt.value === 'si') btn.textContent = '✅ ' + opt.label;
+        if (opt.value === 'no') btn.textContent = '❌ ' + opt.label;
+
+        btn.onclick = () => {
+            // Mostra in chat la scelta dell'utente
+            appendMessage('Tu', opt.label);
+            vscode.postMessage({ command: 'askFollowUp', text: opt.value });
+            btnContainer.innerHTML = '';
+        };
+        btnContainer.appendChild(btn);
+    });
+}
 
 // Funzione per mostrare i bottoni
 function showConfirmationButtons(options) {

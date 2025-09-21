@@ -1,20 +1,9 @@
 // @ts-nocheck
 import * as vscode from 'vscode';
 import { promises as fs } from 'fs';
+import { getGithubToken } from './configureMind2CodeCommand.js';
 import path from 'path';
 import dotenv from 'dotenv';
-
-dotenv.config();
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-
-if(!GITHUB_TOKEN){
-    vscode.window.showErrorMessage('GITHUB_TOKEN non è definito. Assicurati di averlo impostato nel file .env.');
-}
-
-const headers = {
-    'Authorization': `Bearer ${GITHUB_TOKEN}`,
-    'Accept': 'application/vnd.github.v3+json'
-}
 
 /**
  * Estrae owner e repo GitHub dal file .git/config del workspace
@@ -25,9 +14,7 @@ async function extractRepoInfo(workspaceFolder , context){
     try {
         const configPath = path.join(workspaceFolder, '.git', 'config');
 
-        // Leggi il contenuto del file
         const configContent = await fs.readFile(configPath, 'utf8');
-        // Cerca l'URL del repository remoto
         const urlMatch = configContent.match(/\[remote "origin"\][\s\S]*?url = .*?github\.com[:\/]([^/]+)\/([^.\s]+)(\.git)?/i);
         
         if (urlMatch && urlMatch.length >= 3) {
@@ -51,26 +38,24 @@ async function extractRepoInfo(workspaceFolder , context){
 
 /**
  * Analizza il contenuto di un file di configurazione per determinare il framework
- * @param {string} filePath - Percorso del file da analizzare
+ * @param {string} content - Contenuto del file da analizzare
  * @param {string} fileName - Nome del file
  * @returns {Promise<string>} - Framework rilevato
  */
-async function analyzeConfigFile(filePath, fileName) {
+async function analyzeConfigFile(content, fileName) {
   try {
-    const content = await fs.readFile(filePath, 'utf8');
     
-    // Analisi basata sul tipo di file
     if (fileName === 'requirements.txt') {
-      // Cerca framework Python
       if (content.includes('flask')) {
         return 'Flask';
       } else if (content.includes('django')) {
         return 'Django';
+      } else if (content.includes('fastapi')) { // Aggiunto: Rilevamento FastAPI
+        return 'FastAPI';
       } else {
         return 'Python';
       }
     } else if (fileName === 'package.json') {
-      // Analisi package.json per framework JavaScript
       const packageJson = JSON.parse(content);
       const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
       
@@ -85,15 +70,17 @@ async function analyzeConfigFile(filePath, fileName) {
       } else {
         return 'Node.js';
       }
-    } else if (fileName === 'pom.xml' || fileName === 'build.gradle') {
-      // Analisi file Java
-      if (content.includes('spring-boot') || content.includes('org.springframework.boot')) {
+    } else if (fileName === 'pom.xml') {
+      // Migliorato il rilevamento di Spring Boot
+      if (content.includes('spring-boot') || 
+          content.includes('org.springframework.boot') ||
+          content.includes('spring-boot-maven-plugin') || // Aggiunto: Plugin Maven
+          content.includes('org.springframework.boot:spring-boot-gradle-plugin')) { // Aggiunto: Plugin Gradle
         return 'Spring Boot';
       } else {
         return 'Java';
       }
     } else if (fileName === 'go.mod') {
-      // Analisi Go modules
       if (content.includes('github.com/gin-gonic/gin')) {
         return 'Gin';
       } else if (content.includes('github.com/gorilla/mux')) {
@@ -101,9 +88,18 @@ async function analyzeConfigFile(filePath, fileName) {
       } else {
         return 'Go';
       }
+    } else if (fileName === 'pubspec.yaml') { // Aggiunto: Rilevamento Dart/Flutter
+      if (content.includes('flutter:')) {
+        return 'Flutter';
+      } else if (content.includes('sdk: flutter')) {
+        return 'Flutter';
+      } else if (content.includes('sdk: dart')) {
+        return 'Dart';
+      } else {
+        return 'Dart'; // Default a Dart se non è specificamente Flutter
+      }
     }
     
-    // Default: restituisci il valore predefinito dal frameworkHints
     return frameworkHints[fileName] || 'Unknown';
   } catch (error) {
     console.error(`Errore durante l'analisi del file ${fileName}:`, error);
@@ -111,33 +107,57 @@ async function analyzeConfigFile(filePath, fileName) {
   }
 }
 
-async function determineFramework(workspaceFolder, contents) {
+// Nuova funzione helper per recuperare ricorsivamente tutti i contenuti del repository
+async function fetchRepoContentsRecursively(owner, repo, headers, pathPrefix = '', allContents = []) {
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${pathPrefix}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    console.error(`Failed to fetch contents for path: ${pathPrefix}, status: ${res.status}`);
+    return allContents;
+  }
+  const data = await res.json();
+
+  for (const item of data) {
+    if (item.type === 'dir') {
+      if (!IGNORED_DIRS.includes(item.name.toLowerCase())) {
+        const subPath = pathPrefix ? `${pathPrefix}/${item.name}` : item.name;
+        await fetchRepoContentsRecursively(owner, repo, headers, subPath, allContents);
+      }
+    } else if (item.type === 'file') {
+      allContents.push(item);
+    }
+  }
+  return allContents;
+}
+
+async function determineFramework(workspaceFolder, allRepoContents, headers) {
     const configFilesFound = CONFIG_FILES.filter(name => 
-      contents.some(file => file.name.toLowerCase() === name.toLowerCase())
+      allRepoContents.some(file => file.name.toLowerCase() === name.toLowerCase())
     );
     
     if (configFilesFound.length === 0) return [];
     
+    
     const frameworks = [];
     
     for (const fileName of configFilesFound) {
-      const fileObj = contents.find(file => file.name.toLowerCase() === fileName.toLowerCase());
+      const fileObj = allRepoContents.find(file => file.name.toLowerCase() === fileName.toLowerCase());
       if (fileObj) {
-        // Scarica il contenuto del file se è un file remoto
-        let filePath;
-        let content;
+        let fileContent;
         
         if (fileObj.download_url) {
           const response = await fetch(fileObj.download_url, { headers });
-          content = await response.text();
-          // Crea un file temporaneo o usa direttamente il contenuto
-          filePath = path.join(workspaceFolder, fileName);
-          await fs.writeFile(filePath, content, 'utf8');
+          fileContent = await response.text();
         } else {
-          filePath = path.join(workspaceFolder, fileName);
+          try {
+            fileContent = await fs.readFile(path.join(workspaceFolder, fileName), 'utf8');
+          } catch (readError) {
+            console.error(`Errore durante la lettura del file locale ${fileName}:`, readError);
+            continue;
+          }
         }
         
-        const framework = await analyzeConfigFile(filePath, fileName);
+        const framework = await analyzeConfigFile(fileContent, fileName);
         if (framework && framework !== 'Unknown') {
           frameworks.push(framework);
         }
@@ -148,6 +168,7 @@ async function determineFramework(workspaceFolder, contents) {
 }
 
 const IGNORED_DIRS = ['node_modules', 'build', 'dist', '.git', '.vscode', 'docs', 'test', 'tests'];
+
 const NAMING_PATTERNS = {
   controllers: /controller/i,
   services: /service/i,
@@ -159,7 +180,8 @@ const EXT_LANG_MAP = {
   '.ts': 'typescript',
   '.go': 'go',
   '.java': 'java',
-  '.py': 'python'
+  '.py': 'python',
+  '.dart': 'dart'
 };
 
 const CONFIG_FILES = [
@@ -176,9 +198,11 @@ const CONFIG_FILES = [
   'config.ts',
   'config.go',
   'settings.py',
-  'settings.json'
+  'settings.json',
+  'pubspec.yaml'
 ];
 
+const frameworkHints = {};
 
 /**
  * Deduci tipo di naming (CamelCase, snake_case, kebab-case)
@@ -193,21 +217,24 @@ function detectNamingStyle(filenameWithoutExt) {
 /**
  * Estrae esempi significativi e analizza stile + linguaggio
  */
-async function extractNamingExamples(owner, repo, preloadedData = null, pathPrefix = '', accumulator = {}, maxFiles = 50, currentCount = 0) {
-  if (currentCount >= maxFiles) return accumulator;
+async function extractNamingExamples(owner, repo, headers, allRepoContents, pathPrefix = '', accumulator = {}, maxExamples = 50, currentCount = 0) {
+  if (currentCount >= maxExamples) return accumulator;
   
   let data;
-  if (preloadedData && pathPrefix === '') {
-    data = preloadedData;
+  if (pathPrefix === '') { // Se pathPrefix è vuoto, usiamo allRepoContents
+    data = allRepoContents;
   } else {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${pathPrefix}`;
     const res = await fetch(url, { headers });
-    if (!res.ok) return accumulator;
+    if (!res.ok) {
+      console.error(`Failed to fetch contents for path: ${pathPrefix}, status: ${res.status}`);
+      return accumulator;
+    }
     data = await res.json();
   }
 
   for (const item of data) {
-    if (currentCount >= maxFiles) break;
+    if (currentCount >= maxExamples) break;
     
     const name = item.name;
     const lower = name.toLowerCase();
@@ -217,7 +244,8 @@ async function extractNamingExamples(owner, repo, preloadedData = null, pathPref
     if (item.type === 'dir') {
       if (!IGNORED_DIRS.includes(lower)) {
         const subPath = pathPrefix ? `${pathPrefix}/${name}` : name;
-        await extractNamingExamples(owner, repo, null, subPath, accumulator, maxFiles, currentCount);
+        const updatedAccumulator = await extractNamingExamples(owner, repo, headers, allRepoContents, subPath, accumulator, maxExamples, currentCount);
+        Object.assign(accumulator, updatedAccumulator);
         currentCount = Object.values(accumulator).flat().length;
       }
     } else if (item.type === 'file') {
@@ -225,16 +253,16 @@ async function extractNamingExamples(owner, repo, preloadedData = null, pathPref
       if (!lang) continue;
 
       for (const [key, regex] of Object.entries(NAMING_PATTERNS)) {
-        if (regex.test(name) && !(accumulator[key]?.length)) {
+        if (regex.test(name)) {
           const style = detectNamingStyle(filenameWithoutExt);
-          accumulator[key] = [
-            {
-              filename: name,
-              namingStyle: style
-            }
-          ];
+          if (!accumulator[key]) {
+            accumulator[key] = [];
+          }
+          accumulator[key].push({
+            filename: name,
+            namingStyle: style
+          });
           currentCount++;
-          break; // Passa al file successivo dopo aver trovato un match
         }
       }
     }
@@ -251,6 +279,18 @@ export async function createGithubContext(workspaceFolder, context) {
   }, async (progress) => {
       progress.report({ increment: 0, message: "Inizio analisi repository..." });
       
+      const githubToken = await getGithubToken(context);
+
+      if (!githubToken) {
+          vscode.window.showErrorMessage('GitHub Token non configurato. Si prega di configurare Mind2Code.');
+          return null;
+      }
+
+      const headers = {
+          'Authorization': `Bearer ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+      };
+
       const result = await extractRepoInfo(workspaceFolder, context);
       progress.report({ increment: 20, message: "Informazioni repository estratte" });
       
@@ -265,46 +305,41 @@ export async function createGithubContext(workspaceFolder, context) {
       const langRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/languages`, { headers });
       const langData = await langRes.json();
       
-      progress.report({ increment: 20, message: "Analisi file principali..." });
-      const contentsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents`, { headers });
-      const contents = await contentsRes.json();
+      progress.report({ increment: 20, message: "Recupero tutti i contenuti del repository..." });
+      // Definizione di allRepoContents qui
+      const allRepoContents = await fetchRepoContentsRecursively(owner, repo, headers);
       
       progress.report({ increment: 20, message: "Identificazione framework..." });
-      const fileNames = contents.map(f => f.name.toLowerCase());
-      
-      const framework = await determineFramework(workspaceFolder, contents);
+      // Passa allRepoContents a determineFramework
+      const framework = await determineFramework(workspaceFolder, allRepoContents, headers);
       
       progress.report({ increment: 15, message: "Analisi convenzioni di naming..." });
-      const namingExample = await extractNamingExamples(owner, repo, contents, '', {}, 30); // Limita a 30 file      
+      // Passa allRepoContents a extractNamingExamples
+      const namingExample = await extractNamingExamples(owner, repo, headers, allRepoContents, '', {}, 30);
       progress.report({ increment: 15, message: "Finalizzazione..." });
       
       const repoProfile = {
           owner: owner,
           repo: repo,
-          languages: Object.entries(langData).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([lang]) => lang.toLowerCase()),
+          languages: Object.entries(langData).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(),
           framework: framework,
           namingExamples: namingExample,
-          configFiles: CONFIG_FILES.filter(name => fileNames.includes(name))
+          configFiles: CONFIG_FILES.filter(name => allRepoContents.map(f => f.name.toLowerCase()).includes(name))
       };
 
       context.globalState.update('repoContext', repoProfile);
-      //console.log("Profilo della repository creato:", JSON.stringify(repoProfile, null, 2));
       return repoProfile;
   });
 }
 
 export async function getGithubContext(workspaceFolder, context){
-    console.log("Recupero del profilo della repository in corso...");
     const owner = context.globalState.get('githubOwner');
     const repo = context.globalState.get('githubRepo');
     
     if (owner && repo) {
-        console.log(`Owner get: ${owner}, Repo get: ${repo}`);
         const repoContext = context.globalState.get('repoContext');
         if (repoContext) {
             return repoContext;
-        } else {
-            console.log("Nessun profilo della repository trovato nel context.");
         }
         return repoContext;
     } else {

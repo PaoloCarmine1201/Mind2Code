@@ -2,12 +2,11 @@
 import { tool } from '@langchain/core/tools';
 import { date, z } from 'zod';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { llm } from './agentModel.js';
+import { llm } from './AgentModel.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import * as vscode from 'vscode';
 
-//tool with confidence level of LLM
 const is_requirement = tool(async (input) => {
     console.log("IS REQUIREMENT TOOL");
 
@@ -85,11 +84,18 @@ const refine_requirement = tool(async (input) => {
         - AC #1: ...
         - AC #2: ...
         - AC #n: ...
-        
-        **IMPORTANT**
-        Adapt the tone and structure using the GitHub repository context and user profile.
+
+        **IMPORTANT — PERSONALIZATION**
+        Use the GitHub repository context to infer technical aspects such as the **MOST USED PROGRAMMING LANGUAGES**, **framework structure**, **architectural patterns**, and **naming conventions**. Integrate this information with the user's cognitive profile to adapt the output's style, experience level, and learning preferences:
+        - From the user's cognitive profile, adapt the **experience level** and **preferred learning style** (e.g., step-by-step with comments for beginners; concise, idiomatic code for experts).
+        - From the user's cognitive profile, align the **tone**, **terminology depth**, and **code complexity** to their profile.
+        - From the GitHub repository context, follow the repository's ** first most used programming languages**, **frameworks**, **architectural patterns**, and **naming conventions**.
+        If any assumption is needed, **state it in one brief sentence tailored to the user**, then proceed.
 
         Only return a JSON object — no extra explanation or comments.
+
+        OBBLIGATORIO
+        La risposta deve essere **SEMPRE** in italiano
 
         ---
 
@@ -120,7 +126,6 @@ const refine_requirement = tool(async (input) => {
 })
 
 //create a tool that classify language of the requirement
-//tool with confidence level of LLM
 const classify_language = tool(async (input) => {
   console.log("CLASSIFY LANGUAGE TOOL");
 
@@ -135,11 +140,16 @@ const classify_language = tool(async (input) => {
     {
       role: "system",
       content: `You are an assistant that determines the most appropriate programming language to implement a software requirement.
+        You must infer if the requirement is for a 'frontend' or 'backend' component.
+        Based on this inference, you will prioritize the language selection.
 
         **FOLLOW THIS PRIORITY ORDER**:
-        1. FIRST, analyze the input requirement for explicit language mentions
-        2. SECOND, If no language is specified, check the GitHub repository context
-        3. THIRD, Then check the user's profile
+        1. FIRST, analyze the input requirement for explicit language mentions.
+        2. SECOND, if no language is explicitly specified, infer if the requirement is 'frontend' or 'backend'.
+           - If 'frontend', check the languages defined in the working repository context that are typically used for frontend development (e.g., JavaScript, TypeScript).
+           - If 'backend', check the languages defined in the working repository context that are typically used for backend development (e.g., Python, Java, Go, Node.js).
+           - USE THE FIRST RELEVANT LANGUAGE FOUND IN THE GITHUB CONTEXT.
+        3. IN THE LAST, Then check the user's profile for preferred languages.
 
         Respond ONLY with a JSON object like: { "language": "..." }
 
@@ -155,7 +165,7 @@ const classify_language = tool(async (input) => {
   // Verifica che sia un linguaggio valido
   const validLanguages = [
     "python", "javascript", "java", "cpp", "go",
-    "typescript", "ruby", "php", "csharp", "c"
+    "typescript", "ruby", "php", "csharp", "c", "dart"
   ];
 
   const normalized = (() => {
@@ -184,7 +194,6 @@ const classify_language = tool(async (input) => {
 })
 
 //create a tool that extracts a filename from the requirement
-//tool with confidence level of LLM
 const extract_filename = tool(async (input) => {
   console.log("EXTRACT FILENAME TOOL");
   
@@ -225,6 +234,12 @@ const extract_filename = tool(async (input) => {
       filename = filename.replace(/\.\w+$/, "") + ".java";
   } else if (input.language === "cpp" && !filename.endsWith(".cpp")) {
       filename = filename.replace(/\.\w+$/, "") + ".cpp";
+  } else if (input.language === "go" && !filename.endsWith(".go")) {
+      filename = filename.replace(/\.\w+$/, "") + ".go";
+  } else if (input.language === "typescript" && !filename.endsWith(".ts")) {
+      filename = filename.replace(/\.\w+$/, "") + ".ts";
+  } else if (input.language === "c" && !filename.endsWith(".c")) {
+      filename = filename.replace(/\.\w+$/, "") + ".c";
   }
 
   return {
@@ -245,8 +260,14 @@ const extract_filename = tool(async (input) => {
 //create a tool that generate code from the requirement
 const generate_code = tool(async (input) => {
     console.log("GENERATE CODE TOOL");
-    console.log("INPUT TO GENERATE CODE: ", JSON.stringify(input, null, 2));
 
+    let refineReq;
+      try {
+        refineReq = JSON.parse(input.requirement);
+      } catch (e) {
+        // Se non è un JSON valido, includi comunque il testo originale
+        refineReq = { acceptance_criteria: [], original_requirement: input.requirement };
+      }
 
     const response = await llm.withStructuredOutput(
       z.object({
@@ -262,8 +283,27 @@ const generate_code = tool(async (input) => {
 
                 Input to analyze: "${input.requirement}"
 
-                IMPORTANT: Carefully consider the following user profile when generating the code. 
-                Adapt the code style, complexity, comments, and structure to match the user's preferences and experience level.
+                **IMPORTANT**: Carefully consider all the acceptance criteria.
+                ${Array.isArray(refineReq.acceptance_criteria) && refineReq.acceptance_criteria.length > 0
+                  ? refineReq.acceptance_criteria.map(ac => `- ${ac}`).join("\n")
+                  : (refineReq.original_requirement ? `- ${refineReq.original_requirement}` : "")}
+
+                GENERATE THE CODE THAT SATISFIES ALL THE **ACCEPTANCE CRITERIA**.
+
+                **IMPORTANT — PERSONALIZATION**
+                When generating code, use the user's cognitive profile/mental state to adapt every aspect of the output to the user's mental model:
+                - Match the user's experience level and preferred learning style (e.g., step-by-step with comments for beginners; concise, idiomatic code for experts).
+                - Tune code complexity, abstraction, naming, and comment density accordingly. Directly apply the mental profile's preferences for code complexity, abstraction level, and comment density (e.g., if the profile indicates "heavily commented," include many comments).
+                - Align the tone and terminology depth exactly as specified in the profile.
+                - On trade-offs, the user’s preferences and mental model override generic best practices.
+                If any assumption is needed, state it in one brief, user-tailored sentence, then proceed.
+
+                **IMPORTANT — COMMENTING & DOCS POLICY**
+                Apply comments/docs strictly from the user profile:
+                - Experience: beginner → step-by-step inline comments for each non-trivial line; intermediate → block-level comments + brief function headers; advanced → sparse intent comments only; expert → comments only where non-obvious.
+                - Code style: commented → many inline comments per block; clean → light comments, prefer descriptive names; concise → avoid comments unless clarifying intent; documented → full API docs for every public class/function (params/returns), minimal inline.
+                - Learning preference: examples → include a tiny usage example with brief guiding comments; documentation → richer API docs (params/returns/examples) over inline; tutorials → prefix main blocks with "Step 1/2/..." comments; exploration → minimal comments plus TODO/NOTE hints for experiments.
+                - Language-specific docs: JS/TS → JSDoc \`/** ... */\`; Python → docstrings """ ... """; Java → Javadoc \`/** ... */\`; others → idiomatic header/function comments.
 
                 USER PROFILE:
                 ${input.user_profile}
@@ -297,8 +337,92 @@ const generate_code = tool(async (input) => {
 
 )
 
+const propose_followup = tool(async (input) => {
+  console.log("PROPOSE FOLLOW-UP TOOL");
+  
+  // Utilizziamo il modello LLM per generare un follow-up basato sul requisito e sul codice generato
+  const response = await llm.withStructuredOutput(
+    z.object({
+      followup: z.string().describe("The proposed follow-up question or action.")
+    }),
+    { strict: true }
+  ).invoke([
+    {
+      role: "system",
+      content: `You are an assistant that proposes a follow-up improvement to the generated code. 
+                The follow-up must always be a yes/no question, phrased so that the user can simply answer "yes" to implement it or "no" to skip it. 
+                Do NOT propose open-ended or vague questions (e.g., "What additional measures..."). 
+                The follow-up should suggest a concrete, implementable improvement to the code, directly related to the requirement. 
+
+        Refined requirement: "${input.refined_requirement}"
+        Generated Code: "${input.generated_code}"
+
+        Return ONLY a JSON object like: { "followup": "..." }
+        No comments, no explanations.
+        
+        OBBLIGATORIO
+        La risposta deve essere sempre in italiano`
+    }
+  ]);
+
+  return {
+    followup: response.followup
+  };
+},{
+  name: 'propose_followup',
+  description: 'Call to propose a follow-up question or action based on the generated code and requirement.',
+  schema: z.object({
+    refined_requirement: z.string().describe("The refined requirement text."),
+    generated_code: z.string().describe("The code that was generated based on the requirement."),
+    confidence: z.number().optional().describe("Confidence level for the follow-up proposal, between 0 and 1."),
+  })
+})
+
+// Tool per implementare i miglioramenti proposti dal follow-up
+const implement_improvement = tool(async (input) => {
+  console.log("IMPLEMENT IMPROVEMENT TOOL");
+  
+  // Utilizziamo il modello LLM per implementare il miglioramento proposto
+  const response = await llm.withStructuredOutput(
+    z.object({
+      improved_code: z.string().describe("The improved code with the suggested changes implemented.")
+    }),
+    { strict: true }
+  ).invoke([
+    {
+      role: "system",
+      content: `You are an assistant that implements code improvements based on a follow-up suggestion.
+
+        Original Code: "${input.generated_code}"
+        Follow-up Suggestion: "${input.followup}"
+        Programming Language: ${input.language}
+        
+        Your task is to implement the improvements suggested in the follow-up.
+
+        Maintain the original code's style exactly—formatting/indentation, naming conventions, comment/doc style (JSDoc/docstrings/Javadoc), and architectural patterns.
+        When adding or modifying code, keep all existing comments and structure intact, and write new code with the same style and equivalent comments/docs; do not reformat or introduce a different style anywhere.
+        
+        Return ONLY a JSON object like: { "improved_code": "..." }
+        The improved_code should be the complete code with the improvements implemented, not just the changes.
+        No comments, no explanations outside the code.`
+    }
+  ]);
+
+  const formattedCode = `\`\`\`\n${response.improved_code}\n\`\`\``;
+
+  return formattedCode;
+}, {
+  name: 'implement_improvement',
+  description: 'Call to implement improvements suggested in the follow-up.',
+  schema: z.object({
+    generated_code: z.string().describe("The original generated code."),
+    followup: z.string().describe("The follow-up suggestion for improvement."),
+    language: z.string().describe("The programming language of the code.")
+  })
+});
+
 //create a tool that save the code into a file
-const save_code = tool(async (input) => {
+export const save_code = tool(async (input) => {
   console.log("SAVE CODE TOOL");
   let code = input.generated_code;
   let filename = input.filename;
@@ -310,7 +434,6 @@ const save_code = tool(async (input) => {
   if (match) {
     // Estrai solo il contenuto tra i backticks
     code = match[1];
-    console.log("Backticks rimossi dal codice");
   }
 
   if (!filename.startsWith("out/")) {
@@ -330,6 +453,7 @@ const save_code = tool(async (input) => {
     schema: z.object({
       generated_code: z.string().describe("The generated code to save."),
       filename: z.string().describe("The filename to save the code into."),
+      confidence: z.number().optional().describe("Confidence level for the save operation, between 0 and 1."),
     })
 })
 
@@ -377,5 +501,5 @@ async function saveCodeToFile(filename, code, webview = null) {
   }
 }
 
-export const tools = [is_requirement, refine_requirement, classify_language, generate_code, extract_filename, save_code];
+export const tools = [is_requirement, refine_requirement, classify_language, generate_code, propose_followup, extract_filename, implement_improvement, save_code];
 export const toolNode = new ToolNode(tools);

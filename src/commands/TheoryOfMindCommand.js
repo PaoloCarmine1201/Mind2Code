@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { promises as fs } from 'fs';
 
 /**
  * Comando per valutare le capacità di programmazione dell'utente
@@ -38,6 +39,8 @@ export async function StartTomQuiz(context) {
               await saveAnswer(context, id, question, answer);
             } else if (message.command === "quizComplete") {
                 vscode.window.showInformationMessage('Profilo utente salvato con successo!');
+                // Esporta automaticamente il profilo in JSON
+                await exportToMProfileToJson(context);
                 panel.dispose();
                 resolve(true);
             }
@@ -277,6 +280,52 @@ export async function getToMProfile(context, suppressWarning = false) {
     return userProfileString;
   }
   
+export async function exportToMProfileToJson (context) {
+  try {
+    // Recupera i dati del profilo
+    const userProfile = await context.globalState.get('tomProfile');
+    
+    if (!userProfile || userProfile.length === 0 || userProfile.length < 7) {
+      vscode.window.showWarningMessage('Profilo utente non trovato oppure incompleto.\n Esegui prima il quiz per configurare o completare il tuo profilo.');
+      return false;
+    }
+    
+    // Ottieni la directory di lavoro
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+      vscode.window.showErrorMessage('Nessuna directory di lavoro aperta');
+      return false;
+    }
+    
+    const currentDir = workspaceFolders[0].uri;
+    
+    // Crea la cartella out se non esiste
+    const outDir = vscode.Uri.joinPath(currentDir, 'out');
+    try {
+      await vscode.workspace.fs.createDirectory(outDir);
+    } catch (err) {
+      // La cartella potrebbe già esistere, ignora l'errore
+    }
+    
+    // Crea il file JSON
+    const filePath = vscode.Uri.joinPath(outDir, 'user_profile.json');
+    
+    // Formatta i dati per il JSON
+    const jsonData = JSON.stringify(userProfile, null, 2);
+    
+    // Scrivi il file
+    await vscode.workspace.fs.writeFile(
+      filePath,
+      Buffer.from(jsonData, 'utf8')
+    );
+    
+    vscode.window.showInformationMessage('Profilo utente esportato con successo in out/user_profile.json');
+    return true;
+  } catch (error) {
+    vscode.window.showErrorMessage(`Errore durante l'esportazione del profilo: ${error.message}`);
+    return false;
+  }
+}
 
 export async function clearToMProfile(context) {
     await context.globalState.update('tomProfile', null);

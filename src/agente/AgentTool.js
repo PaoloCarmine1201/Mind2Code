@@ -146,8 +146,8 @@ const classify_language = tool(async (input) => {
         **FOLLOW THIS PRIORITY ORDER**:
         1. FIRST, analyze the input requirement for explicit language mentions.
         2. SECOND, if no language is explicitly specified, infer if the requirement is 'frontend' or 'backend'.
-           - If 'frontend', check the languages defined in the working repository context that are typically used for frontend development (e.g., JavaScript, TypeScript).
-           - If 'backend', check the languages defined in the working repository context that are typically used for backend development (e.g., Python, Java, Go, Node.js).
+           - If 'frontend', check the languages defined in the **working repository context** that are typically used for frontend development (e.g., JavaScript, TypeScript, Dart).
+           - If 'backend', check the languages defined in the **working repository context** that are typically used for backend development (e.g., Python, Java, Go, Node.js, Dart).
            - USE THE FIRST RELEVANT LANGUAGE FOUND IN THE GITHUB CONTEXT.
         3. IN THE LAST, Then check the user's profile for preferred languages.
 

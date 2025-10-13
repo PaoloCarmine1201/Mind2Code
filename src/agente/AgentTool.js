@@ -140,29 +140,25 @@ const classify_language = tool(async (input) => {
     {
       role: "system",
       content: `You are an assistant that determines the most appropriate programming language to implement a software requirement.
-        You must infer if the requirement is for a 'frontend' or 'backend' component.
-        Based on this inference, you will prioritize the language selection.
 
-        **FOLLOW THIS PRIORITY ORDER**:
-        1. FIRST, analyze the input requirement for explicit language mentions.
-        2. SECOND, if no language is explicitly specified, infer the language by the repository context: "${input.github_context}.
-           - check the languages defined in the **working repository context** that are typically used for backend development (like Java or Dart), check the repository context for the language to use GitHub repository context: "${input.github_context}.
-           - USE THE MOST RELEVANT LANGUAGE BASED ON FRAMEWORK DEFINED INTO THE REPOSITORY CONTEXT,
-            - Example: if in the repository context the framework used is Spring Boot, then Java would be the most relevant language.
-            - Example: if in the repository context the framework used is Flutter, then Dart would be the most relevant language.
-            - Example: if in the repository context the framework used is React, then JavaScript/TypeScript would be the most relevant language.
-        3. IN THE LAST, Then check the user's profile for preferred languages.
-
+          FOLLOW THIS PRIORITY ORDER (strict):
+          1) Check the input requirement for any **explicit language mention** and use it if present.
+          2) Otherwise, **infer the language from the GitHub repository context** by looking at the **frameworks** in use: "${input.github_context}".
+            - The framework DICTATES the language. Examples (not exhaustive):
+              - Spring / Spring Boot → java
+              - Flutter → dart
+            - If multiple frameworks are present, pick the **dominant** one (by prevalence in the context); when in doubt, choose the one **most central** to the requirement.
+            - The **framework-derived language takes precedence** over user preferences.".
         Respond ONLY with a JSON object like: { "language": "..." }
 
 		Requirement to analyze: "${input.requirement}"
-		GitHub repository context: "${input.github_context}"
-    User profile: "${input.user_profile}"`
+		GitHub repository context: "${input.github_context}"`
     }
   ]);
 
   // Estrai e pulisci la risposta
   const language = response.language.trim().toLowerCase();
+  console.log("Detected language:", language);
   
   // Verifica che sia un linguaggio valido
   const validLanguages = [

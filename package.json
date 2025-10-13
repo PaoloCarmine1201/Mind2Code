@@ -3,7 +3,7 @@
   "name": "mind2code",
   "displayName": "Mind2Code",
   "description": "Chat agent Perspective-Taking for Personalized Code Generation",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.99.0"
   },
@@ -106,15 +106,13 @@
     "lint": "eslint .",
     "pretest": "npm run lint",
     "test": "vscode-test",
-
     "dep:svg:cluster": "node scripts/gen-dep-graph.mjs | dot -Tsvg -o docs/dependencies.svg",
     "dep:png:cluster": "node scripts/gen-dep-graph.mjs | dot -Tpng -o docs/dependencies.png",
-
     "dep:png": "madge --extensions js --exclude '(node_modules|dist|build|\\.test\\.|\\.spec\\.)' --image docs/dependencies.png src",
-  "dep:svg": "madge --extensions js --exclude '(node_modules|dist|build|\\.test\\.|\\.spec\\.)' --dot src | dot -Tsvg -Grankdir=LR -o docs/dependencies.svg",
-  "dep:circles": "madge --extensions js --exclude '(node_modules|dist|build)' --circular src",
-  "dep:orphans": "madge --extensions js --exclude '(node_modules|dist|build)' --orphans src",
-  "dep:summary": "madge --extensions js --exclude '(node_modules|dist|build)' --summary src"
+    "dep:svg": "madge --extensions js --exclude '(node_modules|dist|build|\\.test\\.|\\.spec\\.)' --dot src | dot -Tsvg -Grankdir=LR -o docs/dependencies.svg",
+    "dep:circles": "madge --extensions js --exclude '(node_modules|dist|build)' --circular src",
+    "dep:orphans": "madge --extensions js --exclude '(node_modules|dist|build)' --orphans src",
+    "dep:summary": "madge --extensions js --exclude '(node_modules|dist|build)' --summary src"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

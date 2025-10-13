@@ -377,8 +377,8 @@ async function handleAgentResult(result, webview, continueCallback) {
   
   // --- Qui la logica generalizzata per la confidence ---
   if (result.tool_confidence > 0.7 && msg?.tool_calls?.length > 0 && msg) {
-    const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
-    const toolMessage = `${toolName}`;
+    const toolName = (msg.tool_calls[0]?.name || "Nome non disponibile").replace(/_/g, ' ');
+    const toolMessage = `<em><strong>${toolName}</strong></em>`;
     webview.postMessage({
       command: 'reply',
       text: 'La tua richiesta è molto chiara, sono sicuro del prossimo passo da eseguire.\n' + 
@@ -394,8 +394,8 @@ async function handleAgentResult(result, webview, continueCallback) {
     // Chiedi all'utente se vuole continuare
     this.waitingForContinuation = true;
     if(msg?.tool_calls?.length > 0 && msg && result.tool_confidence < 0.7) {
-      const toolName = msg.tool_calls[0]?.name || "Nome non disponibile";
-      const toolMessage = `Non sono abbastanza sicuro della tua richiesta, ho bisogno di chiamare il tool: ${toolName}\n`;
+      const toolName = (msg.tool_calls[0]?.name || "Nome non disponibile").replace(/_/g, ' ');
+      const toolMessage = `Non sono abbastanza sicuro della tua richiesta, ho bisogno di chiamare il tool: <em><strong>${toolName}</strong></em>\n`;
       webview.postMessage({ command: 'lockInput' });
       webview.postMessage({
         command: 'askConfirmation',

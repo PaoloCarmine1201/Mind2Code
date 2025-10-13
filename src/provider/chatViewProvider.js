@@ -86,8 +86,24 @@ export class ChatViewProvider {
                   await new Promise(res => setTimeout(res, 15000));
                   user_mental_state = await getToMProfile(this.context);
                 }
+                
                 webview.postMessage({ command: 'status', text: '✅ Profilo utente caricato, puoi continuare!' });
               }
+
+              repo_context = await getGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);
+              
+              // Ensure repo_context is populated before creating inputs
+              if (!repo_context) {
+                console.log("Sono nell'if del repo context vuoto\n");
+                while (!repo_context) {
+                  await new Promise(res => setTimeout(res, 15000));
+                  repo_context = createGithubContext(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, this.context);
+                }
+
+                webview.postMessage({ command: 'repoContext', text: repo_context });
+              }
+              console.log("Repo context ottenuto:", repo_context);
+
               console.log("Inizio esecuzione");
               const inputs = {
                 is_requirement: undefined,

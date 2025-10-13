@@ -432,7 +432,6 @@ window.addEventListener('message', event => {
             text = `Ho scelto questo nome file per te: <strong>${text}</strong>. Passo alla generazione del codice!`;
             appendMessage('Tool', text);
         } else if (toolName === 'generate_code') {
-            console.log('Codice generato:', text);
             text = markdownToHtml(text);
             appendMessage('Tool', text);
         } else if (toolName === 'propose_followup') {
@@ -445,11 +444,9 @@ window.addEventListener('message', event => {
             }
 
             const followupText = parsed.followup;
-            console.log("Sono in followUp:", followupText);
 
             appendMessage("Tool", followupText);
         } else if (toolName === 'implement_improvement') {
-            console.log('Codice migliorato:', text);
             text = markdownToHtml(text);
             appendMessage('Tool', text);
         } else if (toolName === 'save_code') {

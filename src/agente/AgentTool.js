@@ -128,7 +128,6 @@ const refine_requirement = tool(async (input) => {
 //create a tool that classify language of the requirement
 const classify_language = tool(async (input) => {
   console.log("CLASSIFY LANGUAGE TOOL");
-  console.log("Github context all'interno di classify_language:", input.github_context);
 
   // Utilizziamo il modello LLM per determinare il linguaggio basandosi sul requisito
   // e sul contesto GitHub che è già stato fornito nel prompt di sistema
@@ -195,7 +194,6 @@ const classify_language = tool(async (input) => {
 //create a tool that extracts a filename from the requirement
 const extract_filename = tool(async (input) => {
   console.log("EXTRACT FILENAME TOOL");
-  console.log("Github context all'interno di extract_filename:", input.github_context);
   
   const response = await llm.withStructuredOutput(
     z.object({

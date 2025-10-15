@@ -92,8 +92,7 @@ function getHtml(webview, context, styleUri) {
           { value: 'python', label: 'Python' },
           { value: 'java', label: 'Java' },
           { value: 'cpp', label: 'C/C++' },
-          { value: 'dart', label: 'Dart' },
-          { value: 'other', label: 'Altri' }
+          { value: 'dart', label: 'Dart' }
         ])}
         </div>
 
@@ -116,8 +115,7 @@ function getHtml(webview, context, styleUri) {
           { value: 'django', label: 'Django' },
           { value: 'flask', label: 'Flask' },
           { value: 'spring', label: 'Spring' },
-          { value: 'flutter', label: 'Flutter' },
-          { value: 'none', label: 'Nessuno/Altri' }
+          { value: 'flutter', label: 'Flutter' }
         ])}
         </div>
   

@@ -310,7 +310,7 @@ export class ChatViewProvider {
           <div class="chat-container" id="messages"></div>
           <div id="confirmation-buttons"></div>
             <div class="input-container" id="input-area">
-              <input type="text" id="input" placeholder="Scrivi un messaggio..." />
+              <input type="text" id="input" placeholder="Inserisci il requisito da implementare..." />
               <button id="send">➤</button>
             </div>
         </div>

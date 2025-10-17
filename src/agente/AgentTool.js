@@ -32,7 +32,9 @@ const is_requirement = tool(async (input) => {
           - Specify features or behaviors
           - May be formal or informal
 
-          Input to analyze: "${input.requirement}"
+          Input to analyze: "${input.requirement}
+          
+          **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**"
           `
       }
     ]);
@@ -97,6 +99,8 @@ const refine_requirement = tool(async (input) => {
         OBBLIGATORIO
         La risposta deve essere **SEMPRE** in italiano
 
+        **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
+
         ---
 
         **User Request:**
@@ -107,6 +111,8 @@ const refine_requirement = tool(async (input) => {
 
         **User Profile:**
         ${input.user_profile}
+
+        **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
         `
       }
     ]);    
@@ -152,7 +158,10 @@ const classify_language = tool(async (input) => {
         Respond ONLY with a JSON object like: { "language": "..." }
 
 		Requirement to analyze: "${input.requirement}"
-		GitHub repository context: "${input.github_context}"`
+		GitHub repository context: "${input.github_context}"
+    
+    **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
+    `
     }
   ]);
 
@@ -213,9 +222,13 @@ const extract_filename = tool(async (input) => {
     ${input.github_context}
 		
 		Requirement to analyze: "${input.requirement}"
-		
+
+		**RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
+
 		Return ONLY a JSON object like: { "filename": "..." }
-    No comments, no explanations.`
+    No comments, no explanations.
+    
+    **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**`
       }
   ]);
 
@@ -307,6 +320,8 @@ const generate_code = tool(async (input) => {
 
                 USER PROFILE:
                 ${input.user_profile}
+                
+                **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
 
                 Return a JSON object with:
                 {
@@ -318,6 +333,8 @@ const generate_code = tool(async (input) => {
                 - Any language tags
                 - Any triple backticks
                 - Any comments outside the JSON
+
+                **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
                 `
       }
     ]);
@@ -357,11 +374,15 @@ const propose_followup = tool(async (input) => {
         Refined requirement: "${input.refined_requirement}"
         Generated Code: "${input.generated_code}"
 
-        Return ONLY a JSON object like: { "followup": "..." }
+        Return ONLY a JSON object like **THIS**: { "followup": "..." }
         No comments, no explanations.
+
+        **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
         
         OBBLIGATORIO
-        La risposta deve essere sempre in italiano`
+        La risposta deve essere sempre in italiano
+        
+        **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**`
     }
   ]);
 
@@ -402,7 +423,13 @@ const implement_improvement = tool(async (input) => {
         Maintain the original code's style exactly—formatting/indentation, naming conventions, comment/doc style (JSDoc/docstrings/Javadoc), and architectural patterns.
         When adding or modifying code, keep all existing comments and structure intact, and write new code with the same style and equivalent comments/docs; do not reformat or introduce a different style anywhere.
         
+        **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
+
         Return ONLY a JSON object like: { "improved_code": "..." }
+
+        **RISPETTA SEMPRE LE LINEE GUIDA INDICATE E IL FORMATO RICHIESTO**
+
+
         The improved_code should be the complete code with the improvements implemented, not just the changes.
         No comments, no explanations outside the code.`
     }

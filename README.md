@@ -55,13 +55,61 @@ The extension includes an intelligent agent capable of:
 
 Open the VS Code command palette (`F1` or `Ctrl+Shift+P` on Windows/Linux, `Cmd+Shift+P` on macOS) and search for:
 
->Extensions: Install from VSIX
+> **Extensions: Install from VSIX**
 
-Then select the .vsix file provided in the repository.
+Then select the `.vsix` file provided in the repository.
 
->ℹ️ The .vsix file is precompiled, so you don't need to run npm install or npm run compile.
+> ℹ️ The `.vsix` file is precompiled, so you don't need to run `npm install` or `npm run compile`.
+
+---
 
 **2. Configure Mind2Code**
-...
+
+Once installed, open the Mind2Code sidebar icon located on the left panel of Visual Studio Code.  
+A configuration popup will appear automatically — click **"Configure now"** and fill in the following fields:
+
+- **OpenAI API Key** → your valid OpenAI key.  
+- **GPT Model** → e.g. `gpt-4.1-mini`.  
+- **GitHub Personal Access Token (PAT)** → required to allow repository analysis.
+
+After entering your credentials, click **“Save Configuration”** to complete the setup.
+
+> 💡 If the popup does not appear, open the command palette (`Ctrl+Shift+P`) and run:  
+> `Mind2Code: Restart Configuration`.
+
+---
+
+**3. Start the ToM (Theory of Mind) Quiz**
+
+After completing the configuration, a new popup will appear.  
+Click **“Start ToM Quiz”** to begin the cognitive profiling process.  
+Complete all the questions and save your profile at the end.  
+A JSON file named `YourSurname_ToM_profile.json` will be generated in the `/out` folder.
+
+> If the quiz does not start automatically, you can run the following commands manually:  
+> - `Mind2Code: Clear ToM Profile`  
+> - `Mind2Code: Start ToM Profile Quiz`
+
+---
+
+**4. Repository Analysis**
+
+Once the ToM profile is created, Mind2Code will automatically start analyzing the currently open repository.  
+Wait for the analysis to finish — a confirmation popup will appear in the bottom-right corner of VS Code.
+
+---
+
+**5. Code Generation**
+
+To generate code:
+1. Select the requirement you want to implement and paste it into the Mind2Code input field.  
+2. Press **Enter** to run the agent and automatically generate the corresponding code.
+
+When the process completes, the generated code will appear in the output panel.
+
+> 🧠 Mind2Code adapts its code generation to your personal ToM profile and the structure of the analyzed repository.
+
+---
 
 **Enjoy!**
+
